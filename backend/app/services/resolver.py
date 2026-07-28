@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.llm import tasks as llm_tasks
-from app.llm.fakes import classify_knockout_heuristic, is_eeo_heuristic
+from app.llm.fakes import classify_knockout_heuristic
 from app.logging_conf import get_logger
 from app.models import (
     CustomField,
@@ -273,9 +273,9 @@ def resolve_field(
     label = field_.label.strip() or (field_.name or "")
     normalized = normalize_question(label, company=company, location=location)
 
-    # Knockout / EEO classification up front (heuristic; LLM refines later).
+    # Knockout classification up front (heuristic; LLM refines later). EEO is
+    # detected by the library entries and the LLM mapping downstream.
     knockout = classify_knockout_heuristic(label).is_knockout
-    eeo = is_eeo_heuristic(label)
 
     # --- 1a. Years-per-skill (more specific than any library entry) --------
     years = lib.match_years_skill(label, data.profile)
