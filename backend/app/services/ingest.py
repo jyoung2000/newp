@@ -52,6 +52,27 @@ def _norm_title_company(title: str, company: str) -> str:
     return _norm_re.sub("", f"{title} {company}".lower()).strip()
 
 
+# How alike two (title, company) keys must be before the second one is treated
+# as the same role reached through a different URL. Anything asking "would
+# ingest consider this a duplicate?" must use this constant and the key
+# function above — two near-copies of this rule would drift apart.
+FUZZY_TITLE_MATCH = 0.92
+
+
+def find_fuzzy_duplicate(
+    db: Session, user: User, title: str, company: str
+) -> JobListing | None:
+    """The saved listing `upsert_listings` would collapse this role into."""
+    key = _norm_title_company(title, company)
+    best: JobListing | None = None
+    best_score = 0.0
+    for row in db.scalars(select(JobListing).where(JobListing.user_id == user.id)):
+        score = similarity(key, _norm_title_company(row.title, row.company))
+        if score > best_score:
+            best, best_score = row, score
+    return best if best_score >= FUZZY_TITLE_MATCH else None
+
+
 def upsert_listings(
     db: Session, user: User, raw_listings: list[RawListing]
 ) -> tuple[list[JobListing], int]:
@@ -79,7 +100,7 @@ def upsert_listings(
             continue
         # Fuzzy dedupe: same company + near-identical title from another URL.
         fuzzy_key = _norm_title_company(raw.title, raw.company)
-        if any(similarity(fuzzy_key, key) >= 0.92 for _, key in existing_fuzzy):
+        if any(similarity(fuzzy_key, key) >= FUZZY_TITLE_MATCH for _, key in existing_fuzzy):
             dupes += 1
             continue
         row = JobListing(

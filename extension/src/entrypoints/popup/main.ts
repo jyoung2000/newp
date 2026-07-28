@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
 import * as api from "../../lib/api";
+import type { CapturedJob } from "../../lib/capture";
 import { hasDebuggerPermission, requestDebuggerPermission, TabRelay } from "../../lib/relay";
 import type { StoredState } from "../../lib/types";
 
@@ -89,7 +90,113 @@ async function doPair(): Promise<void> {
   }
 }
 
+// --- Save this job --------------------------------------------------------
+// The user is looking at a job page and wants it in JobPilot. The active tab
+// describes itself (read-only); the popup previews that and posts it on a
+// click. Nothing is captured in the background and no site is fetched.
+
+async function askActiveTabForJob(): Promise<CapturedJob> {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id == null) throw new Error("no tab");
+  const reply = (await browser.tabs.sendMessage(tab.id, { type: "bg.captureJob" })) as
+    | { job?: CapturedJob }
+    | undefined;
+  if (!reply?.job) throw new Error("no reply");
+  return reply.job;
+}
+
+function renderCapture(state: StoredState): void {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="capture-head"><b>Save this job</b></div>
+    <div class="muted">Reading this page…</div>`;
+  app.appendChild(card);
+
+  void (async () => {
+    let job: CapturedJob;
+    try {
+      job = await askActiveTabForJob();
+    } catch {
+      // Two ordinary causes, and no way to tell them apart from here: the tab
+      // predates this extension being installed or reloaded (so nothing is
+      // listening in it), or it is a page extensions may not touch at all.
+      card.innerHTML = `
+        <div class="capture-head"><b>Save this job</b></div>
+        <div class="note">
+          JobPilot can't read this tab. Reload the job page and reopen this popup —
+          tabs opened before the extension was installed or updated aren't
+          connected yet. Browser pages (like <b>chrome://</b> or the add-ons store)
+          are off-limits to extensions entirely.
+        </div>`;
+      return;
+    }
+    card.innerHTML = `
+      <div class="capture-head"><b>Save this job</b></div>
+      <div class="row"><span class="muted">Title</span><span class="capture-value" id="cap-title"></span></div>
+      <div class="row"><span class="muted">Company</span><span class="capture-value" id="cap-company"></span></div>
+      ${
+        job.confidence === "low"
+          ? `<div class="note">We couldn't detect much on this page — it will be saved with what we found.</div>`
+          : ""
+      }
+      <div class="error" id="cap-err" style="display:none"></div>
+      <button class="btn-primary" id="cap-save" style="margin-top:8px">Save to JobPilot</button>`;
+    // Page-supplied text goes in as text, never as markup.
+    card.querySelector("#cap-title")!.textContent = job.title;
+    card.querySelector("#cap-company")!.textContent = job.company;
+
+    const save = card.querySelector<HTMLButtonElement>("#cap-save")!;
+    save.addEventListener("click", () => void doCapture(card, save, job, state));
+  })();
+}
+
+async function doCapture(
+  card: HTMLElement,
+  save: HTMLButtonElement,
+  job: CapturedJob,
+  state: StoredState,
+): Promise<void> {
+  const err = card.querySelector<HTMLElement>("#cap-err")!;
+  err.style.display = "none";
+  save.disabled = true;
+  save.textContent = "Saving…";
+  try {
+    const result = await api.captureJob({
+      url: job.url,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      description: job.description,
+      salary_raw: job.salary_raw,
+      apply_url: job.apply_url,
+      posted_at_text: job.posted_at_text,
+      source_site: new URL(job.url).hostname,
+    });
+    save.remove();
+    const done = document.createElement("div");
+    done.className = "ok";
+    done.textContent = result.already_saved ? "Already in your list" : "Saved";
+    card.appendChild(done);
+    const open = document.createElement("button");
+    open.className = "btn-ghost";
+    open.style.marginTop = "8px";
+    open.textContent = "View in JobPilot";
+    open.addEventListener("click", () => {
+      void browser.tabs.create({ url: `${state.serverUrl}/listings` });
+    });
+    card.appendChild(open);
+  } catch (e) {
+    err.textContent = e instanceof Error ? e.message : "Save failed";
+    err.style.display = "block";
+    save.disabled = false;
+    save.textContent = "Save to JobPilot";
+  }
+}
+
 async function renderPaired(state: StoredState, online: boolean): Promise<void> {
+  renderCapture(state);
+
   let serverVersion = "";
   let latest: string | null = null;
   try {

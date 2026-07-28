@@ -108,3 +108,17 @@ export function scoreTone(score: number | null | undefined): 'high' | 'mid' | 'l
   if (score >= 50) return 'mid'
   return 'low'
 }
+
+// The direct link to a listing's application page, or null when there isn't
+// one to open. A manually added listing without a URL carries a synthetic
+// `manual://…` value, and a control labelled "Open application" must not
+// point at something the browser can't navigate to.
+export function applyHref(listing: {
+  apply_url?: string | null
+  canonical_url?: string | null
+}): string | null {
+  for (const candidate of [listing.apply_url, listing.canonical_url]) {
+    if (candidate && /^https?:\/\//i.test(candidate)) return candidate
+  }
+  return null
+}

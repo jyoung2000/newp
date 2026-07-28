@@ -1,6 +1,7 @@
 // Content script: runs a single application fill on the page the background
 // navigated to. All challenge halts route to the human — never solved here.
 import browser from "webextension-polyfill";
+import { extractJob } from "../lib/capture";
 import { challengeCleared, ChallengeHalt, clearOverlay, runFill, showChallengeHalt } from "../lib/fill";
 import type { BackgroundToContent, NextJob } from "../lib/types";
 
@@ -11,8 +12,13 @@ export default defineContentScript({
     let stopped = false;
     let currentJob: NextJob | null = null;
 
-    browser.runtime.onMessage.addListener((raw: unknown): Promise<{ ok: boolean }> => {
+    browser.runtime.onMessage.addListener((raw: unknown): Promise<unknown> => {
       const msg = raw as BackgroundToContent | { type: string };
+      if (msg.type === "bg.captureJob") {
+        // The user clicked "Save this job" in the popup. Read-only: describe
+        // the page they are already looking at, change nothing.
+        return Promise.resolve({ ok: true, job: extractJob() });
+      }
       if (msg.type === "bg.fillJob") {
         currentJob = (msg as { job: NextJob }).job;
         stopped = false;

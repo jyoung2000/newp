@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -30,11 +31,20 @@ from app.models import (
 )
 from app.schemas.auth import OkResponse, UserSettings
 from app.security import hash_token, new_token
+from app.services.ingest import (
+    canonicalize_url,
+    enrich_listings,
+    find_fuzzy_duplicate,
+    upsert_listings,
+)
 from app.services.intervention_service import create_intervention
 from app.services.pacing import check_submission_allowance
 from app.services.resolver import DetectedField as ResolverField
 from app.services.resolver import mark_answer_used, resolve_field
+from app.services.salary import parse_salary
 from app.services.storage import store_bytes
+from app.sources.base import RawListing
+from app.sources.util import parse_iso
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -112,6 +122,143 @@ def ping(
         device_name=device.name,
         server_version=__version__,
         latest_extension_version=extension_bundle_version(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# One-click capture: the human is reading a job page in their own browser and
+# clicks "Save this job". The page content arrives from that browser — the
+# server never sends a request to that site, here or later ("captured" is not
+# a fetchable source). That is the whole point: it works on pages JobPilot
+# itself will not (and must not) fetch.
+#
+# It is not, though, a no-network endpoint: a saved listing is summarized and
+# match-scored through the user's own configured model like any other, so keep
+# the guarantee stated as what it is — nothing goes to the captured site.
+# ---------------------------------------------------------------------------
+
+def _http_url(value: str) -> str | None:
+    """`value` if it is an ordinary http(s) URL, else None.
+
+    Everything in a capture is supplied by the page the user was reading, so a
+    hostile posting can put whatever it likes in its JSON-LD `url`. These two
+    fields are later rendered as links in the app's own origin — a stored
+    `javascript:` URL would run there. Only http(s) is stored.
+    """
+    parsed = urlparse(value.strip())
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+        return None
+    return value.strip()
+
+
+class CaptureRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=1000)
+    title: str = Field(min_length=1, max_length=300)
+    company: str = Field(min_length=1, max_length=300)
+    location: str | None = Field(default=None, max_length=300)
+    description: str | None = Field(default=None, max_length=100_000)
+    salary_raw: str | None = Field(default=None, max_length=300)
+    apply_url: str | None = Field(default=None, max_length=1000)
+    posted_at_text: str | None = Field(default=None, max_length=300)
+    source_site: str | None = Field(default=None, max_length=300)
+
+    @field_validator("url")
+    @classmethod
+    def _check_url(cls, value: str) -> str:
+        checked = _http_url(value)
+        if checked is None:
+            raise ValueError("Only http(s) job pages can be saved")
+        return checked
+
+    @field_validator("apply_url")
+    @classmethod
+    def _check_apply_url(cls, value: str | None) -> str | None:
+        # Not fatal: a bad apply link just falls back to the page URL.
+        return _http_url(value) if value else None
+
+
+class CaptureResponse(BaseModel):
+    listing_id: int
+    title: str
+    company: str
+    already_saved: bool
+
+
+@router.post("/capture", response_model=CaptureResponse)
+def capture(
+    payload: CaptureRequest,
+    device: Device = Depends(get_device),
+    user: User = Depends(get_device_user),
+    db: Session = Depends(get_db),
+) -> CaptureResponse:
+    existing = db.scalar(
+        select(JobListing).where(
+            JobListing.user_id == user.id,
+            JobListing.canonical_url == canonicalize_url(payload.url),
+        )
+    )
+    if existing is None:
+        # Ingest also collapses the same role reached through a different URL
+        # (an aggregator copy of a posting already saved). Ask which row that
+        # is *before* inserting, so the answer is the row that actually
+        # matched rather than a second, looser guess made afterwards.
+        existing = find_fuzzy_duplicate(db, user, payload.title, payload.company)
+    if existing is None:
+        salary = parse_salary(payload.salary_raw)
+        raw = RawListing(
+            source="captured",
+            url=payload.url,
+            apply_url=payload.apply_url or payload.url,
+            title=payload.title,
+            company=payload.company,
+            location=payload.location,
+            description=payload.description,
+            salary_raw=payload.salary_raw,
+            salary_min=salary.minimum,
+            salary_max=salary.maximum,
+            salary_currency=salary.currency,
+            salary_period=salary.period,
+            posted_at=parse_iso(payload.posted_at_text),
+            extra={"captured_from": payload.source_site, "captured_by_device": device.id},
+        )
+        new_rows, _dupes = upsert_listings(db, user, [raw])
+        if not new_rows:
+            # Another device saved this posting between the lookup and the
+            # insert. Hand back the row that won rather than inventing one.
+            existing = db.scalar(
+                select(JobListing).where(
+                    JobListing.user_id == user.id,
+                    JobListing.canonical_url == canonicalize_url(payload.url),
+                )
+            ) or find_fuzzy_duplicate(db, user, payload.title, payload.company)
+            if existing is None:  # pragma: no cover - needs a concurrent write
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "That posting matched one already in your list, but the saved "
+                    "row could not be identified. Reload your listings.",
+                )
+        else:
+            listing = new_rows[0]
+            enrich_listings(db, user, [listing], limit=1)
+            log.info(
+                "ext.captured",
+                user_id=user.id,
+                device_id=device.id,
+                listing_id=listing.id,
+                site=payload.source_site,
+            )
+            return CaptureResponse(
+                listing_id=listing.id,
+                title=listing.title,
+                company=listing.company,
+                already_saved=False,
+            )
+    log.info("ext.capture_duplicate", user_id=user.id, device_id=device.id, listing_id=existing.id)
+    return CaptureResponse(
+        listing_id=existing.id,
+        title=existing.title,
+        company=existing.company,
+        already_saved=True,
     )
 
 

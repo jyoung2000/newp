@@ -18,7 +18,7 @@ import { Modal } from '../components/Modal'
 import { ListingDrawer } from '../components/ListingDrawer'
 import { RunConfigModal } from '../components/RunConfigModal'
 import { useToast } from '../lib/toast'
-import { cx, fmtRelative, fmtSalary, titleCase } from '../lib/format'
+import { applyHref, cx, fmtRelative, fmtSalary, titleCase } from '../lib/format'
 
 const SORTS = [
   { value: 'score', label: 'Best match' },
@@ -98,6 +98,33 @@ function ExportMenu() {
         </a>
       </div>
     </details>
+  )
+}
+
+// Direct link to the employer's application page. Rendered as a real anchor so
+// middle-click and "copy link address" behave, and kept from opening the row
+// drawer underneath it. Listings with no openable link (a manual entry added
+// without a URL) show nothing rather than a dead button.
+function OpenApplicationLink({ listing }: { listing: ListingOut }) {
+  const href = applyHref(listing)
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title="Open the direct application link in a new tab"
+      aria-label={`Open application for ${listing.title} at ${listing.company}`}
+      className={cx(
+        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150',
+        'border-neutral-200 text-neutral-400 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700',
+        'dark:border-neutral-700 dark:text-neutral-500 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-300',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950',
+      )}
+    >
+      <Icon name="external" className="h-3.5 w-3.5" />
+    </a>
   )
 }
 
@@ -279,6 +306,7 @@ export function Listings() {
                       <div className="flex items-center gap-2 font-medium text-neutral-900 dark:text-neutral-100">
                         <span className="line-clamp-1">{r.title}</span>
                         {r.applied ? <Badge tone="success">Applied</Badge> : null}
+                        <OpenApplicationLink listing={r} />
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
                         <Icon name="building" className="h-3.5 w-3.5" />

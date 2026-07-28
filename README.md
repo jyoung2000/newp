@@ -192,6 +192,21 @@ Your **Anthropic API key is set here**, not only in `.env`:
 - A "what the model sees" card lists the four AI tasks and states plainly
   that your EEO answers and current-compensation figure are never included.
 
+## Your job list
+
+Everything you collect — searched, captured or pasted — lands in one list you
+can filter, sort, score against your profile and queue for auto-apply.
+
+**Open application.** Every row carries a direct link beside the title (and the
+detail drawer shows it as a full *Open application* button) that opens the
+employer's own application page in a new tab — the listing's `apply_url`,
+falling back to its canonical URL. It is a real anchor, so middle-click and
+*Copy link address* behave, and clicking it doesn't open the row's drawer
+underneath. It exists for the times you'd rather apply by hand: nothing is
+queued and nothing is submitted, JobPilot just hands you the link.
+
+---
+
 ## The browser extension
 
 The extension is the default executor for anything interactive: it runs in
@@ -223,6 +238,37 @@ extension popup, enter your JobPilot server URL and the code, and name the
 device. The extension exchanges the code for a device token scoped to your
 account, kept in `storage.local`. Devices are listed and revocable in
 Settings; the popup and the container both show link status.
+
+### "Save this job" — capturing the page you're on
+
+Plenty of good postings live on boards JobPilot will never fetch (LinkedIn,
+Indeed, Monster, Glassdoor, ZipRecruiter — see
+[`docs/SOURCES.md`](docs/SOURCES.md)). You can still browse those sites
+yourself, and keep what you find:
+
+1. **You** open the job page, in your own browser, the normal way.
+2. Click the JobPilot extension and press **Save this job**.
+3. The extension reads the posting out of the tab you're looking at — title,
+   company, location, description, salary text, apply link, post date — and
+   sends it to your container over the paired device token.
+4. It shows up in your job list, parsed for salary and dates, summarized and
+   match-scored like any other listing. Saving the same posting twice (or the
+   same URL with different tracking parameters) returns the row you already
+   have instead of duplicating it.
+
+**This is not scraping.** You navigated to the page; the content comes from
+your browser, and **the server never sends a request to that site** — not at
+save time, not later (`captured` is not a fetchable source), which is exactly
+why this is allowed to work on sites JobPilot itself must not fetch. The button
+saves **one page per click, the one you are on**. There is no crawling, no list
+of URLs, no background pass, and no change to the rule that JobPilot does not
+scrape those boards.
+
+To be exact about what *does* leave your container: if you have an AI key
+configured, a captured listing is summarized and match-scored through your
+configured model, the same as every other listing — one call to your own model
+provider. Turn AI off in Settings → AI and capture stores the page with no
+outbound call at all. Either way, nothing is ever requested from the job board.
 
 ### "Type like a human"
 
@@ -311,12 +357,14 @@ JobPilot applies to jobs you actually want, with information you actually
 provided. It respects rate limits and `robots.txt`, sends a truthful
 identifying User-Agent, and does not scrape boards that forbid it (LinkedIn,
 Indeed, Monster, Glassdoor, ZipRecruiter are permanent non-implementations —
-see [`docs/SOURCES.md`](docs/SOURCES.md)). It hands every human-verification
-challenge to a human. It never creates fake accounts, never auto-accepts terms
-you haven't seen, never submits an application your run settings didn't
-authorize, and applies at most once per posting. EEO/self-identification
-answers default to *decline to self-identify* and are filled only as you
-chose; a current-compensation field you left blank is left blank.
+see [`docs/SOURCES.md`](docs/SOURCES.md); you can still save a posting you are
+personally reading there with **Save this job**). It hands every
+human-verification challenge to a human. It never creates fake accounts, never
+auto-accepts terms you haven't seen, never submits an application your run
+settings didn't authorize, and applies at most once per posting.
+EEO/self-identification answers default to *decline to self-identify* and are
+filled only as you chose; a current-compensation field you left blank is left
+blank.
 
 ## Documentation
 

@@ -10,7 +10,7 @@ import { MatchMeter } from './MatchMeter'
 import { Icon } from './Icon'
 import { SkeletonText } from './Skeleton'
 import { RunConfigModal } from './RunConfigModal'
-import { fmtDate, fmtSalary, titleCase } from '../lib/format'
+import { applyHref, fmtDate, fmtSalary, titleCase } from '../lib/format'
 
 export function ListingDrawer({ listingId, onClose }: { listingId: number | null; onClose: () => void }) {
   const [showFullDesc, setShowFullDesc] = useState(false)
@@ -32,10 +32,16 @@ export function ListingDrawer({ listingId, onClose }: { listingId: number | null
         footer={
           data ? (
             <div className="flex items-center justify-between gap-2">
-              {data.apply_url ? (
-                <a href={data.apply_url} target="_blank" rel="noreferrer">
-                  <Button variant="ghost" iconRight="external">
-                    Employer page
+              {applyHref(data) ? (
+                <a
+                  href={applyHref(data) as string}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open the direct application link in a new tab"
+                  aria-label={`Open application for ${data.title} at ${data.company}`}
+                >
+                  <Button variant="secondary" iconRight="external">
+                    Open application
                   </Button>
                 </a>
               ) : (
