@@ -4,6 +4,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Icon, type IconName } from '../components/Icon'
 import { SkeletonRows } from '../components/Skeleton'
 import { SecuritySection } from '../components/settings/SecuritySection'
+import { AISection } from '../components/settings/AISection'
 import { ExtensionSection } from '../components/settings/ExtensionSection'
 import { PreferencesSection } from '../components/settings/PreferencesSection'
 import { DataSection } from '../components/settings/DataSection'
@@ -12,6 +13,7 @@ import { cx } from '../lib/format'
 
 const SECTIONS: { key: string; label: string; icon: IconName }[] = [
   { key: 'security', label: 'Security', icon: 'lock' },
+  { key: 'ai', label: 'AI', icon: 'sparkles' },
   { key: 'extension', label: 'Extension', icon: 'laptop' },
   { key: 'preferences', label: 'Preferences', icon: 'settings' },
   { key: 'data', label: 'Data', icon: 'download' },
@@ -30,7 +32,7 @@ export function Settings() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Security, extension, preferences and your data" />
+      <PageHeader title="Settings" subtitle="Security, AI, extension, preferences and your data" />
 
       <div className="-mx-1 overflow-x-auto pb-1">
         <div className="flex min-w-max gap-1 rounded-xl border border-neutral-200 bg-white p-1 dark:border-neutral-800 dark:bg-neutral-900">
@@ -55,6 +57,8 @@ export function Settings() {
       <div className="mt-5">
         {section === 'security' ? (
           <SecuritySection />
+        ) : section === 'ai' ? (
+          <AISection />
         ) : section === 'extension' ? (
           <ExtensionSection />
         ) : section === 'preferences' ? (

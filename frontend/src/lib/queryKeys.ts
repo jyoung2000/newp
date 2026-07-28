@@ -5,6 +5,7 @@ export const qk = {
   me: ['me'] as const,
   csrf: ['csrf'] as const,
   settings: ['settings'] as const,
+  aiSettings: ['settings', 'ai'] as const,
   sessions: ['sessions'] as const,
 
   profile: ['profile'] as const,

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # LLM
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    llm_model: str = Field(default="claude-sonnet-5", alias="LLM_MODEL")
+    llm_model: str = Field(default="claude-opus-5", alias="LLM_MODEL")
     llm_dry_run: bool = Field(default=False, alias="LLM_DRY_RUN")
 
     # Discovery: optional aggregator / search keys. Absent keys disable the

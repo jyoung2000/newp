@@ -107,3 +107,7 @@ export interface InterventionFieldMeta {
   novnc?: string | null
   [key: string]: unknown
 }
+
+export type AISettingsOut = Schemas['AISettingsOut']
+export type AISettingsUpdate = Schemas['AISettingsUpdate']
+export type AITestResult = Schemas['AITestResult']
