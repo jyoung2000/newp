@@ -31,7 +31,10 @@ from app.services.storage import delete_file, resolve_user_path, store_bytes
 log = get_logger(__name__)
 router = APIRouter()
 
-STATIC_EXT_DIR = Path(__file__).resolve().parents[1] / "static" / "extension"
+# Extension bundles live OUTSIDE the frontend's static dir so a frontend
+# rebuild (Vite emptyOutDir) can never wipe them. `make ext-zip` and the
+# Docker build both write here.
+STATIC_EXT_DIR = Path(__file__).resolve().parents[1] / "extension_dist"
 
 
 class FileOut(BaseModel):

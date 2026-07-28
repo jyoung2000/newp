@@ -16,7 +16,7 @@ extension/.output/
 extension/.wxt/
 backend/app/static/assets/
 backend/app/static/index.html
-backend/app/static/extension/
+backend/app/extension_dist/
 
 # Runtime data
 *.sqlite3

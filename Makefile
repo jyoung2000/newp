@@ -39,9 +39,10 @@ ext-build: ## Build the extension for Chrome and Firefox
 
 ext-zip: ## Produce distributable zips served at Settings → Extension
 	cd extension && npm run zip && npm run zip:firefox
-	mkdir -p backend/app/static/extension
-	cp extension/.output/*-chrome.zip backend/app/static/extension/jobpilot-chrome.zip
-	cp extension/.output/*-firefox.zip backend/app/static/extension/jobpilot-firefox.zip
+	mkdir -p backend/app/extension_dist
+	cp extension/.output/*-chrome.zip backend/app/extension_dist/jobpilot-chrome.zip
+	cp extension/.output/*-firefox.zip backend/app/extension_dist/jobpilot-firefox.zip
+	node -e "console.log(require('./extension/package.json').version)" > backend/app/extension_dist/VERSION
 
 sign-firefox: ## Sign the Firefox build with your own AMO credentials (WEB_EXT_API_KEY / WEB_EXT_API_SECRET)
 	@test -n "$$WEB_EXT_API_KEY" || (echo "Set WEB_EXT_API_KEY and WEB_EXT_API_SECRET (from https://addons.mozilla.org/developers/addon/api/key/)"; exit 1)

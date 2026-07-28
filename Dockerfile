@@ -42,9 +42,10 @@ RUN pip install --upgrade pip && pip install \
       "websockets>=12.0" "pypdf>=4.2" "python-docx>=1.1"
 
 COPY backend/ ./
-# Built frontend assets and extension bundles.
+# Built frontend assets (own the static dir) and extension bundles (kept in a
+# separate dir so a frontend rebuild can never wipe them).
 COPY --from=frontend /build/backend/app/static ./app/static
-COPY --from=extension /out ./app/static/extension
+COPY --from=extension /out ./app/extension_dist
 
 EXPOSE 1456
 COPY docker/entrypoint-app.sh /entrypoint-app.sh
