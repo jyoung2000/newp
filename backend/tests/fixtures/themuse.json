@@ -1,0 +1,26 @@
+{
+  "page": 1,
+  "page_count": 1,
+  "items_per_page": 20,
+  "took": 10,
+  "timed_out": false,
+  "total": 1,
+  "results": [
+    {
+      "id": 21000001,
+      "name": "Software Engineer, Python",
+      "type": "external",
+      "publication_date": "2026-07-23T18:00:00Z",
+      "short_name": "software-engineer-python",
+      "model_type": "jobs",
+      "locations": [{ "name": "Flexible / Remote" }],
+      "categories": [{ "name": "Software Engineering" }],
+      "levels": [{ "name": "Mid Level", "short_name": "mid" }],
+      "tags": [],
+      "refs": { "landing_page": "https://www.themuse.com/jobs/dundermifflin/software-engineer-python" },
+      "company": { "id": 1111, "short_name": "dundermifflin", "name": "Dunder Mifflin Digital" },
+      "contents": "<p>Write Python services for the paper industry's digital arm.</p>"
+    }
+  ],
+  "aggregations": {}
+}

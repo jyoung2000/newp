@@ -1,0 +1,20 @@
+{
+  "0-legal-notice": "Remotive API Legal Notice",
+  "job-count": 1,
+  "jobs": [
+    {
+      "id": 1900001,
+      "url": "https://remotive.com/remote-jobs/software-dev/python-engineer-1900001",
+      "title": "Python Engineer",
+      "company_name": "Remote First Co",
+      "company_logo": "https://remotive.com/logo.png",
+      "category": "Software Development",
+      "tags": ["python", "django"],
+      "job_type": "full_time",
+      "publication_date": "2026-07-19T10:33:00",
+      "candidate_required_location": "Worldwide",
+      "salary": "$90,000 - $120,000 per year",
+      "description": "<p>Fully remote Python role building Django services.</p>"
+    }
+  ]
+}

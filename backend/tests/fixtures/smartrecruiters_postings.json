@@ -1,0 +1,19 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "totalFound": 1,
+  "content": [
+    {
+      "id": "744000060001",
+      "name": "Frontend Engineer",
+      "uuid": "e5f6a7b8-0000-4000-8000-56789abcdef0",
+      "refNumber": "REF-42",
+      "releasedDate": "2026-07-21T08:30:00.000Z",
+      "location": { "city": "Amsterdam", "region": "NH", "country": "nl", "remote": false },
+      "industry": { "id": "tech", "label": "Technology" },
+      "company": { "identifier": "PiedPiper", "name": "Pied Piper" },
+      "function": { "id": "eng", "label": "Engineering" },
+      "typeOfEmployment": { "label": "Full-time" }
+    }
+  ]
+}

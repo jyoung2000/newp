@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "slug": "python-backend-developer-berlin-171000",
+      "company_name": "Schrute Farms Tech",
+      "title": "Python Backend Developer",
+      "description": "<p>Backend development with Python and FastAPI in Berlin.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/schrute-farms-tech/python-backend-developer-berlin-171000",
+      "tags": ["Software Development"],
+      "job_types": ["professional / experienced"],
+      "location": "Berlin",
+      "created_at": 1784822400
+    },
+    {
+      "slug": "marketing-manager-hamburg-171001",
+      "company_name": "Vance Refrigeration",
+      "title": "Marketing Manager",
+      "description": "<p>Lead marketing.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/vance-refrigeration/marketing-manager-hamburg-171001",
+      "tags": ["Marketing"],
+      "job_types": [],
+      "location": "Hamburg",
+      "created_at": 1784822400
+    }
+  ],
+  "links": { "first": "https://www.arbeitnow.com/api/job-board-api?page=1" },
+  "meta": { "current_page": 1 }
+}

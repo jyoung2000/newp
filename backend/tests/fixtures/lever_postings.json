@@ -1,0 +1,32 @@
+[
+  {
+    "id": "a1b2c3d4-0000-4000-8000-123456789abc",
+    "text": "Backend Engineer, Payments",
+    "hostedUrl": "https://jobs.lever.co/globex/a1b2c3d4-0000-4000-8000-123456789abc",
+    "applyUrl": "https://jobs.lever.co/globex/a1b2c3d4-0000-4000-8000-123456789abc/apply",
+    "categories": {
+      "commitment": "Full-time",
+      "department": "Engineering",
+      "location": "London, UK",
+      "team": "Payments"
+    },
+    "country": "GB",
+    "workplaceType": "hybrid",
+    "createdAt": 1784563200000,
+    "descriptionPlain": "Build payment infrastructure in Python and Go. 4+ years experience required.",
+    "description": "<div>Build payment infrastructure in Python and Go.</div>",
+    "salaryRange": { "min": 85000, "max": 110000, "currency": "GBP", "interval": "per-year-salary" },
+    "lists": []
+  },
+  {
+    "id": "b2c3d4e5-0000-4000-8000-23456789abcd",
+    "text": "Data Analyst",
+    "hostedUrl": "https://jobs.lever.co/globex/b2c3d4e5-0000-4000-8000-23456789abcd",
+    "applyUrl": "https://jobs.lever.co/globex/b2c3d4e5-0000-4000-8000-23456789abcd/apply",
+    "categories": { "commitment": "Full-time", "location": "Remote" },
+    "workplaceType": "remote",
+    "createdAt": 1784736000000,
+    "descriptionPlain": "Analyze data with SQL and Python.",
+    "lists": []
+  }
+]

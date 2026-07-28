@@ -1,0 +1,32 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "c3d4e5f6-0000-4000-8000-3456789abcde",
+      "title": "Machine Learning Engineer",
+      "department": "AI",
+      "team": "Research",
+      "employmentType": "FullTime",
+      "location": "San Francisco",
+      "secondaryLocations": [],
+      "publishedAt": "2026-07-22T00:00:00.000Z",
+      "isListed": true,
+      "isRemote": false,
+      "jobUrl": "https://jobs.ashbyhq.com/initech/c3d4e5f6-0000-4000-8000-3456789abcde",
+      "applyUrl": "https://jobs.ashbyhq.com/initech/c3d4e5f6-0000-4000-8000-3456789abcde/application",
+      "descriptionPlain": "Train and deploy ML models with Python. PhD preferred, Master accepted.",
+      "descriptionHtml": "<p>Train and deploy ML models with Python.</p>",
+      "compensation": {
+        "compensationTierSummary": "$185K – $230K • Offers Equity",
+        "scrapeableCompensationSalarySummary": "$185K - $230K"
+      }
+    },
+    {
+      "id": "d4e5f6a7-0000-4000-8000-456789abcdef",
+      "title": "Internal Tool (unlisted)",
+      "isListed": false,
+      "jobUrl": "https://jobs.ashbyhq.com/initech/d4e5f6a7",
+      "descriptionPlain": "Should never appear."
+    }
+  ]
+}

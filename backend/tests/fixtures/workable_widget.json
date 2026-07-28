@@ -1,0 +1,27 @@
+{
+  "name": "Hooli",
+  "description": "We make it happen.",
+  "jobs": [
+    {
+      "title": "Site Reliability Engineer",
+      "shortcode": "HOOLI001",
+      "code": "",
+      "employment_type": "Full-time",
+      "telecommuting": true,
+      "department": "Infrastructure",
+      "url": "https://apply.workable.com/hooli/j/HOOLI001/",
+      "shortlink": "https://apply.workable.com/j/HOOLI001",
+      "application_url": "https://apply.workable.com/hooli/j/HOOLI001/apply/",
+      "published_on": "2026-07-15",
+      "created_at": "2026-07-14",
+      "country": "Germany",
+      "city": "Berlin",
+      "state": "Berlin",
+      "education": "Bachelor's Degree",
+      "experience": "Mid-Senior level",
+      "function": "Engineering",
+      "industry": "Internet",
+      "description": "<p>Keep Hooli reliable. Python and Kubernetes experience required.</p>"
+    }
+  ]
+}
