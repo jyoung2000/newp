@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from starlette.websockets import WebSocketDisconnect
 
 from tests.conftest import register_and_login
 
 
 def test_ui_ws_requires_auth_and_pongs(client):
     # Unauthenticated: the socket is closed before accept.
-    with pytest.raises(Exception):
+    with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/ui") as ws:
             ws.receive_json()
 
@@ -19,7 +20,7 @@ def test_ui_ws_requires_auth_and_pongs(client):
 
 def test_ext_ws_requires_token(client):
     # No device token -> rejected.
-    with pytest.raises(Exception):
+    with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/ext") as ws:
             ws.receive_json()
 
