@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+frontend/dist/
+extension/.output/
+extension/.wxt/
+backend/app/static/assets/
+backend/app/static/index.html
+backend/app/static/extension/
+
+# Runtime data
+*.sqlite3
+*.db
+uploads/
+data/
+.env
+.env.local
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
