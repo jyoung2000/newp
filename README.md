@@ -94,6 +94,59 @@ Setting `ANTHROPIC_API_KEY` in `.env` is optional — it is the fallback when a
 user hasn't set their own key in Settings → AI. Without either, JobPilot uses
 deterministic offline heuristics and sends nothing to Anthropic.
 
+### Build the container and get the plugin out
+
+The browser extension is compiled during the image build, so a normal build
+already ships it — **Settings → Extension** offers both bundles for download.
+If you would rather have the plugin as files on this machine (Chrome's *Load
+unpacked* wants a folder, not a zip), build and unload it in one go:
+
+```bash
+# 1. build and start the stack (extension is built into the image)
+docker compose up -d --build
+
+# 2. copy the plugin out of the image into ./plugin
+docker compose --profile plugin run --rm plugin
+```
+
+Or, from a clean folder, the whole thing as one command:
+
+```bash
+mkdir -p ~/jobpilot && cd ~/jobpilot \
+  && git clone --depth 1 https://github.com/jyoung2000/newp.git . \
+  && cp -n .env.example .env \
+  && sed -i.bak "s|^SECRET_KEY=.*|SECRET_KEY=$(openssl rand -hex 32)|" .env && rm -f .env.bak \
+  && docker compose up -d --build \
+  && docker compose --profile plugin run --rm plugin
+```
+
+That leaves:
+
+```
+plugin/
+├── chrome-unpacked/    → chrome://extensions → Developer mode → Load unpacked
+├── firefox-unpacked/   → about:debugging → Load Temporary Add-on → manifest.json
+├── jobpilot-chrome.zip
+├── jobpilot-firefox.zip
+└── VERSION
+```
+
+The `plugin` service is behind a compose profile, so it never starts with
+`up`; it runs once, copies files out of the same `jobpilot-app:local` image the
+server runs, and exits — so the extension you install always matches your
+container. It needs no database, no Redis and no network access. Re-run it
+after any rebuild to refresh the folder, then hit *Reload* on the extension in
+your browser.
+
+On Linux the container writes as root, so `./plugin` ends up root-owned
+(harmless for loading it, annoying to delete). If that bothers you, or the
+stack is already running and you don't want another container, copy it out
+with the daemon instead — same files, owned by you:
+
+```bash
+mkdir -p plugin && docker compose cp app:/app/app/extension_dist/. ./plugin
+```
+
 ### Everyday commands
 
 ```bash
@@ -102,6 +155,7 @@ docker compose restart app   # after editing .env
 docker compose down          # stop
 docker compose down -v       # stop and DELETE all data (Postgres + uploads)
 docker compose up -d --build # update after a git pull
+docker compose --profile plugin run --rm plugin  # refresh ./plugin after a rebuild
 ```
 
 Compose builds four services — `app` (:1456), `worker`, `db` (Postgres 16),
@@ -215,7 +269,12 @@ rarely an issue — the honest reason being that it *is* you.
 
 ### Install
 
-Both bundles are built into the app and offered at **Settings → Extension**:
+Both bundles are built into the app and offered at **Settings → Extension**.
+If you prefer files on disk over a browser download, `docker compose --profile
+plugin run --rm plugin` writes them to `./plugin` (see
+[Build the container and get the plugin out](#build-the-container-and-get-the-plugin-out)),
+already unpacked — skip the "unzip it" step below and point *Load unpacked* at
+`plugin/chrome-unpacked`.
 
 - **Chrome / Edge:** download `jobpilot-chrome.zip`, unzip it, then
   `chrome://extensions` → enable *Developer mode* → *Load unpacked* → pick the

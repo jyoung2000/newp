@@ -1,12 +1,23 @@
 # JobPilot — self-hosted job-search assistant.
 # `cp .env.example .env`, set ANTHROPIC_API_KEY, then `docker compose up`.
 # Open http://localhost:1456.
+#
+# The browser extension is built into the app image and downloadable from
+# Settings → Extension. To also drop it on this machine (Chrome's "Load
+# unpacked" needs a folder), run:
+#
+#   docker compose --profile plugin run --rm plugin
+#
+# which writes ./plugin/{chrome-unpacked,firefox-unpacked,*.zip,VERSION}.
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    # Named explicitly so the `plugin` service below can reuse this exact
+    # image — the extension you install then matches the server you run.
+    image: jobpilot-app:local
     ports:
       - "1456:1456"
     env_file: .env
@@ -47,6 +58,30 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
+
+  # Copies the browser-extension bundles out of the app image onto this
+  # machine. Not part of `up` — it is profile-gated and runs once, on demand:
+  #   docker compose --profile plugin run --rm plugin
+  # Needs no database, no Redis and no network; it only unloads files the
+  # image already carries.
+  plugin:
+    profiles: ["plugin"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jobpilot-app:local  # same image as `app`; built once, reused here
+    entrypoint: ["/bin/sh", "-c"]
+    # One list item, so it stays one argument to `sh -c` instead of being
+    # split into separate argv entries.
+    command:
+      - |
+        set -e
+        cp -r /app/app/extension_dist/. /out/
+        echo "JobPilot extension v$$(cat /out/VERSION) written to ./plugin:"
+        ls -1 /out
+    volumes:
+      - ./plugin:/out
+    restart: "no"
 
   db:
     image: postgres:16-alpine

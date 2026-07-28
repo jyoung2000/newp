@@ -163,6 +163,8 @@ Useful commands (from $DIR)
   $COMPOSE restart app      # restart after changing .env
   $COMPOSE down             # stop
   $COMPOSE down -v          # stop and DELETE all data
+  $COMPOSE --profile plugin run --rm plugin
+                            # copy the browser extension to ./plugin, unpacked
 
 JobPilot applies to jobs you actually want, with information you actually
 provided — and every CAPTCHA is completed by you, never by the software.

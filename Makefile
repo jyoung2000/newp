@@ -1,4 +1,4 @@
-.PHONY: help dev test lint typecheck front-build front-dev ext-build ext-zip openapi-types seed migrate sign-firefox up down logs
+.PHONY: help dev test lint typecheck front-build front-dev ext-build ext-zip openapi-types seed migrate sign-firefox up plugin down logs
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -52,6 +52,9 @@ sign-firefox: ## Sign the Firefox build with your own AMO credentials (WEB_EXT_A
 # --- Docker ----------------------------------------------------------------
 up: ## docker compose up (app on http://localhost:1456)
 	docker compose up -d --build
+
+plugin: ## Copy the built browser extension out of the image into ./plugin
+	docker compose --profile plugin run --rm plugin
 
 down: ## docker compose down
 	docker compose down

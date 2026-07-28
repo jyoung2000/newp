@@ -18,6 +18,9 @@ backend/app/static/assets/
 backend/app/static/index.html
 backend/app/extension_dist/
 
+# Extension bundles unloaded from the image by the `plugin` compose service
+plugin/
+
 # Runtime data
 *.sqlite3
 *.db

@@ -23,6 +23,10 @@ RUN npm run build && npm run build:firefox && npm run zip && npm run zip:firefox
     && mkdir -p /out \
     && cp .output/*-chrome.zip /out/jobpilot-chrome.zip \
     && cp .output/*-firefox.zip /out/jobpilot-firefox.zip \
+    # Unpacked builds too: Chrome's "Load unpacked" wants a folder, not a zip,
+    # and this is what the `plugin` compose service copies out to the host.
+    && cp -r .output/chrome-mv3 /out/chrome-unpacked \
+    && cp -r .output/firefox-mv3 /out/firefox-unpacked \
     && node -e "console.log(require('./package.json').version)" > /out/VERSION
 
 # --- Stage 3: the Python app ------------------------------------------------
