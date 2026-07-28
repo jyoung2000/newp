@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.llm import tasks as llm_tasks
+from app.llm.config import LLMConfig, config_for_user
 from app.llm.fakes import classify_knockout_heuristic
 from app.logging_conf import get_logger
 from app.models import (
@@ -97,12 +98,16 @@ class UserData:
     files: list[StoredFile]
     custom_fields: list[CustomField]
     saved_answers: list[SavedAnswer]
+    # The requesting user's own AI credentials/model (Settings → AI),
+    # falling back to the environment configuration.
+    llm_config: LLMConfig | None = None
 
 
 def load_user_data(db: Session, user: User) -> UserData:
     profile = db.scalar(select(Profile).where(Profile.user_id == user.id))
     assert profile is not None, "every user has a profile row"
     return UserData(
+        llm_config=config_for_user(user),
         profile=profile,
         work_experiences=list(
             db.scalars(
@@ -379,7 +384,12 @@ def resolve_field(
     context = build_llm_context(data)
     try:
         mapping = llm_tasks.map_field(
-            label, field_.field_type, field_.options, field_.surrounding_text, context
+            label,
+            field_.field_type,
+            field_.options,
+            field_.surrounding_text,
+            context,
+            config=data.llm_config,
         )
     except Exception as exc:  # LLM unavailable -> human, never a guess
         log.warning("resolver.llm_failed", error=str(exc))
@@ -505,7 +515,9 @@ def _draft_resolution(
     if resume_text:
         context += f"\n\nresume_text: {resume_text[:8000]}"
     try:
-        draft = llm_tasks.draft_answer(field_.label, context, listing_context)
+        draft = llm_tasks.draft_answer(
+            field_.label, context, listing_context, config=data.llm_config
+        )
     except Exception as exc:
         return Resolution(status="needs_human", reason=f"Draft generation unavailable: {exc}")
     if len(draft.text) <= trivial_length:

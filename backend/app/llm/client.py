@@ -1,18 +1,17 @@
 """The single place JobPilot talks to the Anthropic API.
 
 Every call is a `messages.parse` structured-output request validated against
-a Pydantic schema. With LLM_DRY_RUN=1 (tests, keyless demos) the client
-routes to deterministic offline fakes instead — same signatures, same
-contract.
+a Pydantic schema. When no key is configured — or the user turned on offline
+mode — the client routes to deterministic offline fakes instead: same
+signatures, same contract, nothing sent to Anthropic.
 """
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.llm.config import LLMConfig, env_config
 from app.logging_conf import get_logger
 
 log = get_logger(__name__)
@@ -74,14 +73,25 @@ class LLMClient:
         return parsed
 
 
-@lru_cache
-def get_llm() -> LLMClient:
-    settings = get_settings()
-    client = LLMClient(
-        api_key=settings.anthropic_api_key,
-        model=settings.llm_model,
-        dry_run=settings.llm_dry_run,
-    )
-    if client.dry_run:
-        log.info("llm.dry_run_mode", reason="LLM_DRY_RUN set" if settings.llm_dry_run else "no API key")
+# Clients are cached per distinct configuration so a user's own key doesn't
+# leak across users and switching models doesn't rebuild on every call.
+_clients: dict[tuple[str | None, str, bool], LLMClient] = {}
+
+
+def get_llm(config: LLMConfig | None = None) -> LLMClient:
+    cfg = config or env_config()
+    key = (cfg.api_key, cfg.model, cfg.dry_run)
+    client = _clients.get(key)
+    if client is None:
+        client = LLMClient(api_key=cfg.api_key, model=cfg.model, dry_run=cfg.dry_run)
+        if len(_clients) > 32:  # bound the cache in multi-user installs
+            _clients.clear()
+        _clients[key] = client
+        if client.dry_run:
+            log.info("llm.offline_mode", reason="offline toggle" if cfg.offline else "no API key")
     return client
+
+
+def reset_clients() -> None:
+    """Testing/settings-change hook."""
+    _clients.clear()

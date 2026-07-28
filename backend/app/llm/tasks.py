@@ -1,9 +1,16 @@
 """High-level LLM tasks. Each function builds the prompt, calls the client
-(or the deterministic fake in dry-run mode) and returns a validated object."""
+(or the deterministic fake when offline / unkeyed) and returns a validated
+object.
+
+Every task takes an optional `config` so the caller can pass the requesting
+user's own credentials and model (Settings → AI). Omitting it falls back to
+the environment configuration.
+"""
 from __future__ import annotations
 
 from app.llm import fakes, prompts
 from app.llm.client import get_llm
+from app.llm.config import LLMConfig
 from app.llm.schemas import (
     DraftAnswer,
     FieldMapping,
@@ -13,8 +20,8 @@ from app.llm.schemas import (
 )
 
 
-def parse_resume(resume_text: str) -> ParsedResume:
-    llm = get_llm()
+def parse_resume(resume_text: str, config: LLMConfig | None = None) -> ParsedResume:
+    llm = get_llm(config)
     if llm.dry_run:
         return fakes.fake_parse_resume(resume_text)
     return llm.parse(
@@ -25,8 +32,10 @@ def parse_resume(resume_text: str) -> ParsedResume:
     )
 
 
-def enrich_listing(listing_text: str, profile_context: str) -> ListingEnrichment:
-    llm = get_llm()
+def enrich_listing(
+    listing_text: str, profile_context: str, config: LLMConfig | None = None
+) -> ListingEnrichment:
+    llm = get_llm(config)
     if llm.dry_run:
         return fakes.fake_enrich(listing_text, profile_context)
     return llm.parse(
@@ -43,8 +52,9 @@ def map_field(
     options: list[str],
     surrounding_text: str,
     context: str,
+    config: LLMConfig | None = None,
 ) -> FieldMapping:
-    llm = get_llm()
+    llm = get_llm(config)
     if llm.dry_run:
         return fakes.fake_map_field(label, options, context)
     field_meta = (
@@ -60,13 +70,15 @@ def map_field(
     )
 
 
-def classify_knockout(question: str, options: list[str] | None = None) -> KnockoutClassification:
+def classify_knockout(
+    question: str, options: list[str] | None = None, config: LLMConfig | None = None
+) -> KnockoutClassification:
     # Heuristics run first everywhere (cheap, deterministic); the LLM is a
     # second opinion for questions the patterns don't catch.
     heuristic = fakes.classify_knockout_heuristic(question)
     if heuristic.is_knockout:
         return heuristic
-    llm = get_llm()
+    llm = get_llm(config)
     if llm.dry_run:
         return heuristic
     return llm.parse(
@@ -77,8 +89,13 @@ def classify_knockout(question: str, options: list[str] | None = None) -> Knocko
     )
 
 
-def draft_answer(question: str, context: str, listing_context: str) -> DraftAnswer:
-    llm = get_llm()
+def draft_answer(
+    question: str,
+    context: str,
+    listing_context: str,
+    config: LLMConfig | None = None,
+) -> DraftAnswer:
+    llm = get_llm(config)
     if llm.dry_run:
         return fakes.fake_draft(question, context)
     return llm.parse(

@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
 from app.llm import tasks as llm_tasks
+from app.llm.config import config_for_user
 from app.llm.schemas import ParsedResume
 from app.logging_conf import get_logger
 from app.models import (
@@ -175,7 +176,7 @@ def parse_resume(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "No text could be extracted from this file; upload a PDF, DOCX, TXT or MD resume",
         )
-    parsed = llm_tasks.parse_resume(row.extracted_text)
+    parsed = llm_tasks.parse_resume(row.extracted_text, config=config_for_user(user))
     row.parsed_json = parsed.model_dump()
     row.parse_confirmed = False
     return parsed

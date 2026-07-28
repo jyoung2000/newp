@@ -17,6 +17,15 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     totp_secret: Mapped[str | None] = mapped_column(String(64))
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # --- AI provider settings (Settings → AI) ---------------------------
+    # The API key is stored encrypted (services/crypto.py) and is never
+    # returned to a client in plaintext — only a masked hint. When unset,
+    # JobPilot falls back to the ANTHROPIC_API_KEY environment variable.
+    llm_api_key_enc: Mapped[str | None] = mapped_column(String(500))
+    llm_model: Mapped[str | None] = mapped_column(String(80))
+    # True = deterministic offline heuristics; nothing is sent to the LLM.
+    llm_offline: Mapped[bool | None] = mapped_column(Boolean)
     # User-scoped settings: notification channels, humanize default,
     # resolver confidence threshold, run-mode default, timezone, etc.
     settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)

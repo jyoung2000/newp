@@ -17,6 +17,9 @@ from app.api import (
     search,
     transfer,
 )
+from app.api import (
+    settings as settings_api,
+)
 from app.api import ws as ws_module
 
 api_router = APIRouter()
@@ -37,5 +40,6 @@ api_router.include_router(devices.router, prefix="/devices", tags=["devices"])
 api_router.include_router(extension.router, prefix="/ext", tags=["extension"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(transfer.router, prefix="/transfer", tags=["transfer"])
+api_router.include_router(settings_api.router, prefix="/settings", tags=["settings"])
 
 ws_router = ws_module.router

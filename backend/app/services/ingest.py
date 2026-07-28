@@ -124,7 +124,7 @@ def enrich_listings(db: Session, user: User, listings: list[JobListing], limit: 
             f"Location: {listing.location or 'n/a'}\n\n{listing.description or ''}"
         )
         try:
-            result = llm_tasks.enrich_listing(text, profile_context)
+            result = llm_tasks.enrich_listing(text, profile_context, config=data.llm_config)
         except Exception as exc:
             log.warning("ingest.enrich_failed", listing_id=listing.id, error=str(exc))
             continue
