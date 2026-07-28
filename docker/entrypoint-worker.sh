@@ -3,6 +3,9 @@ set -e
 
 echo "JobPilot worker starting…"
 
+# Same key the app uses — it decrypts what the app encrypted.
+. /secret-key.sh
+
 GEOM="${SCREEN_GEOMETRY:-1280x900x24}"
 
 # Headful Chromium needs a display. Xvfb provides it; x11vnc shares it;

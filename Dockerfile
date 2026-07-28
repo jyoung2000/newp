@@ -53,5 +53,6 @@ COPY --from=extension /out ./app/extension_dist
 
 EXPOSE 1456
 COPY docker/entrypoint-app.sh /entrypoint-app.sh
-RUN chmod +x /entrypoint-app.sh
+COPY docker/secret-key.sh /secret-key.sh
+RUN chmod +x /entrypoint-app.sh /secret-key.sh
 ENTRYPOINT ["/entrypoint-app.sh"]

@@ -399,8 +399,12 @@ in the codebase.
 
 Every variable is documented in [`.env.example`](.env.example). Highlights:
 
-- `SECRET_KEY` (required), `ANTHROPIC_API_KEY` (optional; offline heuristics
-  without it), `PORT=1456`.
+- `SECRET_KEY` — set it yourself, or let the containers generate one into the
+  uploads volume on first boot (they share it; deleting it logs everyone out
+  and orphans stored API keys). `ANTHROPIC_API_KEY` is optional — offline
+  heuristics without it, or set it per user in Settings → AI. `PORT=1456`.
+- **`.env` itself is optional.** Every value has a working default; the file
+  only exists so you can change them.
 - `MAX_APPLICATIONS_PER_HOUR` (15) / `MAX_APPLICATIONS_PER_DAY` (50) — enforced
   server-side.
 - `MIN_HOST_INTERVAL_SECONDS` (1.0) — the polite floor; may only be raised.
@@ -434,6 +438,7 @@ blank.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components and lifecycle.
 - [`docs/SOURCES.md`](docs/SOURCES.md) — every connector and its permission basis.
 - [`docs/PRIVACY.md`](docs/PRIVACY.md) — what stays local and what the LLM sees.
+- [`docs/UNRAID.md`](docs/UNRAID.md) — running it under Unraid's Compose Manager.
 - [`docs/PLAN.md`](docs/PLAN.md) — the build plan and interpretation decisions.
 
 ## License

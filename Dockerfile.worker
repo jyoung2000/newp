@@ -22,7 +22,8 @@ RUN pip install --upgrade pip && pip install \
 
 COPY backend/ ./
 COPY docker/entrypoint-worker.sh /entrypoint-worker.sh
-RUN chmod +x /entrypoint-worker.sh
+COPY docker/secret-key.sh /secret-key.sh
+RUN chmod +x /entrypoint-worker.sh /secret-key.sh
 
 # noVNC viewer (embedded in the authenticated JobPilot UI) on 6080.
 EXPOSE 6080

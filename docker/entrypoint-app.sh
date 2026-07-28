@@ -3,6 +3,9 @@ set -e
 
 echo "JobPilot app starting…"
 
+# Ensure a real SECRET_KEY exists and matches the worker's.
+. /secret-key.sh
+
 # Wait for Postgres, then apply migrations.
 python - <<'PY'
 import os, time

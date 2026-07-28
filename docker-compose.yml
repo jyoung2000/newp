@@ -39,7 +39,13 @@ services:
     image: jobpilot-app:local
     ports:
       - "1456:1456"
-    env_file: .env
+    env_file:
+      # Optional: a missing .env is not a startup error. Every value below has
+      # a working default, and SECRET_KEY is generated once into the uploads
+      # volume if you don't set one. (Needs Compose v2.24+; on anything older
+      # `touch .env` next to this file.)
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jobpilot}:${POSTGRES_PASSWORD:-jobpilot}@db:5432/${POSTGRES_DB:-jobpilot}
       REDIS_URL: redis://redis:6379/0
@@ -68,7 +74,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    env_file: .env
+    env_file:
+      # Optional: a missing .env is not a startup error. Every value below has
+      # a working default, and SECRET_KEY is generated once into the uploads
+      # volume if you don't set one. (Needs Compose v2.24+; on anything older
+      # `touch .env` next to this file.)
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jobpilot}:${POSTGRES_PASSWORD:-jobpilot}@db:5432/${POSTGRES_DB:-jobpilot}
       REDIS_URL: redis://redis:6379/0
