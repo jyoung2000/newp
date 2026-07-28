@@ -1,14 +1,33 @@
+# ===========================================================================
 # JobPilot — self-hosted job-search assistant.
-# `cp .env.example .env`, set ANTHROPIC_API_KEY, then `docker compose up`.
+#
+#   cp .env.example .env          # then set SECRET_KEY (and optionally your
+#   docker compose up -d --build  # Anthropic key — the UI can set it instead)
+#
 # Open http://localhost:1456.
 #
-# The browser extension is built into the app image and downloadable from
-# Settings → Extension. To also drop it on this machine (Chrome's "Load
-# unpacked" needs a folder), run:
+# Services
+#   app     FastAPI: UI + REST + WebSocket on 1456. Applies migrations and
+#           seeds the demo account on first boot.
+#   worker  arq queue runner with a headful Playwright Chromium under Xvfb,
+#           shared to the authenticated UI over noVNC so a human can solve a
+#           CAPTCHA in the real page. Software never solves one.
+#   db      Postgres 16.
+#   redis   Redis 7 (queue + pub/sub).
+#   plugin  On-demand, profile-gated: copies the browser extension out of the
+#           app image to ./plugin. Never starts with `up`.
 #
-#   docker compose --profile plugin run --rm plugin
+# Everyday commands
+#   docker compose up -d --build                     # start / update
+#   docker compose logs -f app                       # follow the app log
+#   docker compose --profile plugin run --rm plugin  # extension → ./plugin
+#   docker compose down                              # stop
+#   docker compose down -v                           # stop and DELETE all data
 #
-# which writes ./plugin/{chrome-unpacked,firefox-unpacked,*.zip,VERSION}.
+# Compose names volumes after this directory. If you rename or move the
+# folder, pass `-p <old-name>` (or add `name:` here) or the stack comes up
+# pointing at empty volumes and your data will look gone.
+# ===========================================================================
 
 services:
   app:
@@ -32,8 +51,18 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:1456/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # First boot runs migrations and the seed before the port answers.
+      start_period: 90s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   worker:
     build:
@@ -56,8 +85,21 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      # Not just "db is up": the app owns the migrations, and arq would
+      # otherwise start querying tables that do not exist yet on first boot.
+      app:
+        condition: service_healthy
+    # Chromium writes shared memory here; the 64 MB default crashes tabs on
+    # heavy application pages.
+    shm_size: "1gb"
+    # Let an in-flight application finish its current step and close the
+    # browser cleanly instead of being killed mid-form.
+    stop_grace_period: 60s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   # Copies the browser-extension bundles out of the app image onto this
   # machine. Not part of `up` — it is profile-gated and runs once, on demand:
@@ -92,17 +134,33 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobpilot}"]
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobpilot} -d ${POSTGRES_DB:-jobpilot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  redis:
+    image: redis:7-alpine
+    # Queue state is rebuildable, but an fsync-on-append costs nothing here
+    # and keeps a restart from losing in-flight jobs.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
     restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redisdata:/data
-    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   pgdata:

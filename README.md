@@ -160,9 +160,12 @@ docker compose --profile plugin run --rm plugin  # refresh ./plugin after a rebu
 
 Compose builds four services — `app` (:1456), `worker`, `db` (Postgres 16),
 `redis` (Redis 7) — with named volumes for Postgres, uploads, and the
-Playwright browsers. On first boot the app applies migrations and seeds a
-demo user with live listings (falling back to bundled fixtures if the boards
-are unreachable), so the UI isn't empty.
+Playwright browsers, plus the on-demand `plugin` service above. On first boot
+the app applies migrations and seeds a demo user with live listings (falling
+back to bundled fixtures if the boards are unreachable), so the UI isn't empty.
+Everything waits on health, not on luck: `db` and `redis` must answer before
+`app` starts, and the worker waits for `app` to report healthy — meaning
+migrations are applied — before the queue runner touches a table.
 
 **Demo login:** `demo@jobpilot.local` / `demo-password-1234` (created by the
 seed; change or delete it in Settings).
