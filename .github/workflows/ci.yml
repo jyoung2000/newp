@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+      - name: Sync dependencies
+        working-directory: backend
+        run: uv sync
+      - name: Lint (ruff)
+        working-directory: backend
+        run: uv run ruff check app tests
+      - name: Type check (mypy)
+        working-directory: backend
+        run: uv run mypy app
+      - name: Tests
+        working-directory: backend
+        run: uv run pytest -q
+      - name: CAPTCHA-policy architectural test (explicit)
+        working-directory: backend
+        run: uv run pytest tests/test_captcha_policy.py -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        working-directory: frontend
+        run: npm install
+      - name: Generate API types
+        working-directory: frontend
+        run: npm run gen:types
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        working-directory: extension
+        run: npm install
+      - name: Type check
+        working-directory: extension
+        run: npm run compile
+      - name: Build both browsers
+        working-directory: extension
+        run: npm run build && npm run build:firefox

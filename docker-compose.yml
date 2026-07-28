@@ -1,0 +1,76 @@
+# JobPilot — self-hosted job-search assistant.
+# `cp .env.example .env`, set ANTHROPIC_API_KEY, then `docker compose up`.
+# Open http://localhost:1456.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "1456:1456"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jobpilot}:${POSTGRES_PASSWORD:-jobpilot}@db:5432/${POSTGRES_DB:-jobpilot}
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+      PORT: "1456"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jobpilot}:${POSTGRES_PASSWORD:-jobpilot}@db:5432/${POSTGRES_DB:-jobpilot}
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+      PLAYWRIGHT_HEADFUL: "true"
+    ports:
+      # noVNC viewer, embedded in the authenticated JobPilot UI for remote
+      # CAPTCHA solving. Bound to localhost by default — do not expose raw.
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - uploads:/data/uploads
+      - pw-browsers:/ms-playwright
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jobpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobpilot}
+      POSTGRES_DB: ${POSTGRES_DB:-jobpilot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobpilot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  pw-browsers:
