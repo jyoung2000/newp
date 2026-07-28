@@ -13,7 +13,7 @@ def configure_logging() -> None:
     settings = get_settings()
     dev = settings.environment in ("development", "test")
     timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
-    shared = [
+    shared: list[structlog.typing.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         timestamper,
