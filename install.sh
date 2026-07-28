@@ -18,6 +18,12 @@
 #   JOBPILOT_REF=main              branch or tag (default: main)
 #   JOBPILOT_PORT=1456             host port     (default: 1456)
 #   JOBPILOT_NO_START=1            set up but don't run docker compose up
+#   JOBPILOT_DETACH=1              keep running after you close the terminal
+#
+# The first build takes several minutes. Closing an SSH session normally kills
+# it; JOBPILOT_DETACH=1 re-launches this script detached from the terminal and
+# returns immediately, logging to $JOBPILOT_DIR.install.log (override with
+# JOBPILOT_LOG). Watch it with: tail -f <that file>
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -31,6 +37,41 @@ info()  { printf '  \033[36m•\033[0m %s\n' "$*"; }
 ok()    { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn()  { printf '  \033[33m!\033[0m %s\n' "$*"; }
 die()   { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+# --- 0. Detach, if asked ---------------------------------------------------
+# Re-exec ourselves without a controlling terminal so an SSH disconnect (or a
+# closed Unraid web terminal) can't SIGHUP the build half-way through.
+LOG="${JOBPILOT_LOG:-$DIR.install.log}"
+if [ "${JOBPILOT_DETACH:-0}" = "1" ] && [ "${JOBPILOT_DETACHED:-0}" != "1" ]; then
+  SOURCE_PATH="${BASH_SOURCE[0]:-}"
+  [ -f "$SOURCE_PATH" ] || die "JOBPILOT_DETACH needs this script on disk (a pipe can't be re-run):
+    curl -fsSL https://raw.githubusercontent.com/$REPO/$REF/install.sh -o install.sh
+    JOBPILOT_DETACH=1 bash install.sh"
+  # Keep a copy, so editing or deleting the original mid-build can't matter.
+  SELF="$(mktemp "${TMPDIR:-/tmp}/jobpilot-install-XXXXXX")"
+  cat "$SOURCE_PATH" > "$SELF"
+  mkdir -p "$(dirname "$LOG")"
+  : > "$LOG"
+  # Pass the resolved settings explicitly: the child gets the same install
+  # even if these were set as shell variables rather than exported.
+  JOBPILOT_DETACHED=1 JOBPILOT_SELF="$SELF" JOBPILOT_DIR="$DIR" JOBPILOT_PORT="$PORT" \
+  JOBPILOT_REPO="$REPO" JOBPILOT_REF="$REF" JOBPILOT_LOG="$LOG" \
+  JOBPILOT_NO_START="${JOBPILOT_NO_START:-0}" \
+    setsid nohup bash "$SELF" >>"$LOG" 2>&1 </dev/null &
+  child=$!
+  bold ""
+  bold "JobPilot is installing in the background (pid $child)."
+  echo "  You can close this terminal now."
+  echo
+  echo "  Watch it:   tail -f $LOG"
+  echo "  When done:  http://localhost:$PORT"
+  exit 0
+fi
+
+# The detached run works from a copy in /tmp; don't leave it behind.
+if [ -n "${JOBPILOT_SELF:-}" ]; then
+  trap 'rm -f "$JOBPILOT_SELF"' EXIT
+fi
 
 bold ""
 bold "JobPilot — self-hosted job-search assistant"
@@ -51,13 +92,55 @@ else
 fi
 ok "Docker and Compose are available"
 
-command -v git >/dev/null 2>&1 || die "git is not installed."
+# git is preferred but optional — NAS distributions (Unraid, several
+# Synology setups) ship without it, and a source tarball is enough to build.
+if command -v git >/dev/null 2>&1; then
+  FETCH=git
+elif command -v curl >/dev/null 2>&1; then
+  FETCH=curl
+elif command -v wget >/dev/null 2>&1; then
+  FETCH=wget
+else
+  die "Need git, curl or wget to download the source."
+fi
+[ "$FETCH" = "git" ] || command -v tar >/dev/null 2>&1 || die "Need tar to unpack the source."
 
 # --- 2. Fetch the source ---------------------------------------------------
 # JOBPILOT_REF may name a branch that doesn't exist yet (e.g. before the first
 # release lands on main); fall back to the repository's default branch and say
 # so rather than failing or pretending we got the requested ref.
 REMOTE="https://github.com/$REPO.git"
+
+# Stream a branch/tag tarball into $DIR. Returns non-zero if that ref has no
+# archive, so the caller can try the next candidate.
+download_tarball() {
+  ref="$1"
+  for kind in heads tags; do
+    url="https://codeload.github.com/$REPO/tar.gz/refs/$kind/$ref"
+    if [ "$FETCH" = "curl" ]; then
+      curl -fsSL "$url" 2>/dev/null | tar xz --strip-components=1 -C "$DIR" 2>/dev/null && return 0
+    else
+      wget -qO- "$url" 2>/dev/null | tar xz --strip-components=1 -C "$DIR" 2>/dev/null && return 0
+    fi
+  done
+  return 1
+}
+
+fetch_source() {
+  mkdir -p "$DIR"
+  if download_tarball "$REF"; then
+    ok "Source downloaded ($REF)"
+    return 0
+  fi
+  for fallback in main master; do
+    [ "$fallback" = "$REF" ] && continue
+    if download_tarball "$fallback"; then
+      warn "Ref '$REF' not found — using '$fallback' instead"
+      return 0
+    fi
+  done
+  die "Could not download $REPO ($REF) — check the repository name and your network."
+}
 
 if [ -d "$DIR/.git" ]; then
   info "Existing install found at $DIR — updating…"
@@ -69,9 +152,15 @@ if [ -d "$DIR/.git" ]; then
     git -C "$DIR" checkout -q FETCH_HEAD
     warn "Branch '$REF' not found — updated to the repository's default branch instead"
   fi
+elif [ -f "$DIR/docker-compose.yml" ]; then
+  # A tarball install (no .git). Unpack over it: the archive carries no .env,
+  # so configuration survives, but local edits to tracked files do not.
+  info "Existing install found at $DIR — updating from the source archive…"
+  warn "Any local edits to tracked files will be overwritten (.env is kept)"
+  fetch_source
 elif [ -e "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ]; then
   die "$DIR already exists and is not empty. Set JOBPILOT_DIR to another path."
-else
+elif [ "$FETCH" = "git" ]; then
   info "Creating $DIR and fetching $REPO…"
   mkdir -p "$DIR"
   if git clone --quiet --depth 1 --branch "$REF" "$REMOTE" "$DIR" 2>/dev/null; then
@@ -82,6 +171,9 @@ else
   else
     die "Could not clone $REMOTE — check the repository name and your network."
   fi
+else
+  info "Creating $DIR and downloading $REPO (no git — using the source archive)…"
+  fetch_source
 fi
 
 [ -f "$DIR/docker-compose.yml" ] || die "$DIR doesn't look like a JobPilot checkout (no docker-compose.yml)."

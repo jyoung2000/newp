@@ -70,11 +70,34 @@ Options (environment variables):
 | `JOBPILOT_REF` | `main` | Branch or tag (falls back to the default branch) |
 | `JOBPILOT_REPO` | `jyoung2000/newp` | Source repository |
 | `JOBPILOT_NO_START` | – | Set to `1` to set up without starting |
+| `JOBPILOT_DETACH` | – | Set to `1` to keep installing after you close the terminal |
+| `JOBPILOT_LOG` | `<dir>.install.log` | Where the detached run writes its output |
 
 ```bash
 # e.g. install to ~/apps/jobpilot on port 8080
 JOBPILOT_DIR=~/apps/jobpilot JOBPILOT_PORT=8080 bash install.sh
 ```
+
+`git` is used when present and skipped when it isn't — on a NAS without it,
+the installer downloads a source archive instead.
+
+### Installing over SSH, with the terminal closed
+
+The first build takes several minutes, and closing an SSH session kills
+whatever it was running. `JOBPILOT_DETACH=1` re-launches the installer in its
+own session so a hangup can't reach it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh -o install.sh
+JOBPILOT_DETACH=1 bash install.sh          # returns immediately
+tail -f ./jobpilot.install.log             # watch it, or don't
+```
+
+It prints a pid and the log path, then returns — close the terminal whenever.
+The run is finished when the log says `JobPilot is running` (or when
+`curl -fsS http://localhost:1456/api/health` answers). This needs the script
+on disk: a `curl … | bash` pipe has nothing to re-run, and the installer says
+so rather than silently staying attached.
 
 Re-running the installer updates the source in place and keeps your `.env`
 and your data.

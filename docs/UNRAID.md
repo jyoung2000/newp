@@ -30,6 +30,43 @@ Do **not** put this on `/boot`. It is a small vfat flash device: builds are
 slow, permissions and symlinks don't survive, and you'd be writing tens of
 thousands of files to the stick your server boots from.
 
+### Doing all of it in one command, with the terminal closed
+
+The first build takes several minutes, and closing an SSH session or the
+Unraid web terminal normally kills whatever it was running. `JOBPILOT_DETACH=1`
+re-launches the installer in its own session, so it survives:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh \
+  -o /tmp/jobpilot-install.sh
+JOBPILOT_DETACH=1 JOBPILOT_DIR=/mnt/user/appdata/jobpilot \
+  bash /tmp/jobpilot-install.sh
+```
+
+It prints a pid and a log path and returns immediately — close the terminal
+whenever you like. The installer downloads the source (no `git` needed),
+writes a `.env` with a generated `SECRET_KEY` and database password, and
+builds and starts the stack.
+
+```bash
+tail -f /mnt/user/appdata/jobpilot.install.log   # watch progress
+```
+
+It's done when the log says `JobPilot is running`, or when
+`curl -fsS http://localhost:1456/api/health` answers. If you prefer a session
+you can reattach to, Unraid ships `screen`:
+
+```bash
+screen -dmS jobpilot bash /tmp/jobpilot-install.sh   # start detached
+screen -r jobpilot                                   # look in later
+```
+
+Detaching has to be asked for explicitly, and it needs the script on disk —
+`curl … | bash` has no file to re-run, so download it first as above. Steps 2
+and 3 below are then already done for you; skip to
+[getting the extension](#4-getting-the-browser-extension), or read on if you
+would rather drive Compose Manager yourself.
+
 ## 2. Configuration (optional)
 
 `.env` is optional — every value has a working default, and `SECRET_KEY` is
