@@ -38,16 +38,70 @@ employer's real form     Redis pub/sub ──▶ worker (Playwright headful + no
 
 ---
 
-## Quick start (Docker)
+## Install
+
+### One command
+
+Creates a `jobpilot/` folder, pulls the source from GitHub, generates a
+`SECRET_KEY` and database password, and starts everything:
 
 ```bash
-cp .env.example .env
-# Edit .env: set SECRET_KEY (openssl rand -hex 32) and, for real LLM features,
-# ANTHROPIC_API_KEY. Without a key JobPilot runs with deterministic offline
-# heuristics (LLM_DRY_RUN behavior) and sends nothing to Anthropic.
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh | bash
+```
 
-docker compose up --build
+Piping any script to `bash` deserves a look first — the safer form:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh -o install.sh
+less install.sh          # read it
+bash install.sh
+```
+
+The installer never asks for your API key: set it in the UI at
+**Settings → AI** once JobPilot is running (it is stored encrypted), or leave
+it unset to run fully offline.
+
+Options (environment variables):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `JOBPILOT_DIR` | `./jobpilot` | Where to install |
+| `JOBPILOT_PORT` | `1456` | Host port |
+| `JOBPILOT_REF` | `main` | Branch or tag (falls back to the default branch) |
+| `JOBPILOT_REPO` | `jyoung2000/newp` | Source repository |
+| `JOBPILOT_NO_START` | – | Set to `1` to set up without starting |
+
+```bash
+# e.g. install to ~/apps/jobpilot on port 8080
+JOBPILOT_DIR=~/apps/jobpilot JOBPILOT_PORT=8080 bash install.sh
+```
+
+Re-running the installer updates the source in place and keeps your `.env`
+and your data.
+
+### Manual (git + docker compose)
+
+```bash
+mkdir -p ~/jobpilot && cd ~/jobpilot
+git clone --depth 1 https://github.com/jyoung2000/newp.git .
+cp .env.example .env
+sed -i.bak "s|^SECRET_KEY=.*|SECRET_KEY=$(openssl rand -hex 32)|" .env && rm -f .env.bak
+docker compose up -d --build
 # → open http://localhost:1456
+```
+
+Setting `ANTHROPIC_API_KEY` in `.env` is optional — it is the fallback when a
+user hasn't set their own key in Settings → AI. Without either, JobPilot uses
+deterministic offline heuristics and sends nothing to Anthropic.
+
+### Everyday commands
+
+```bash
+docker compose logs -f app   # follow the app log
+docker compose restart app   # after editing .env
+docker compose down          # stop
+docker compose down -v       # stop and DELETE all data (Postgres + uploads)
+docker compose up -d --build # update after a git pull
 ```
 
 Compose builds four services — `app` (:1456), `worker`, `db` (Postgres 16),
@@ -106,6 +160,37 @@ typecheck`, `make dev`, `make front-build`, `make ext-zip`, `make seed`,
 `make up`.
 
 ---
+
+## Settings
+
+Everything configurable lives at **Settings** in the UI, in six sections:
+
+| Section | What you set |
+|---|---|
+| **Security** | Password, TOTP two-factor (QR + verify), active sessions, revoke |
+| **AI** | Anthropic API key, model, offline mode, test connection — see below |
+| **Extension** | Download for Chrome/Firefox, load-unpacked walkthrough, 6-digit pairing code + QR, paired devices and revoke |
+| **Preferences** | Default run mode and executor, "Type like a human" default, auto-answer confidence threshold, email/webhook notifications, timezone |
+| **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; import profile with a merge preview, import job lists |
+| **Danger zone** | Delete the account and all of its data |
+
+### Settings → AI
+
+Your **Anthropic API key is set here**, not only in `.env`:
+
+- It is **encrypted at rest** (AES-GCM with a key derived from `SECRET_KEY`)
+  and **never shown again** — the UI displays only a hint like `sk-ant-…4f2a`.
+- Precedence is **your key → `ANTHROPIC_API_KEY` → offline**. The UI states
+  which one is in effect.
+- **Model picker:** Claude Opus 5 (default, best parsing/mapping accuracy),
+  Sonnet 5, Haiku 4.5, Opus 4.8.
+- **Offline mode** turns off the LLM entirely — JobPilot falls back to
+  deterministic local heuristics and sends nothing to Anthropic. Parsing and
+  match scoring are rougher; everything else works the same.
+- **Test connection** makes one tiny real call and reports the result (any
+  error is scrubbed of the key before display).
+- A "what the model sees" card lists the four AI tasks and states plainly
+  that your EEO answers and current-compensation figure are never included.
 
 ## The browser extension
 
