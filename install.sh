@@ -308,10 +308,17 @@ info "Building the server-side executor (a large image — it ships a real brows
 if $COMPOSE up -d --build worker; then
   ok "Executor running"
 else
-  warn "The executor image didn't build. The UI above still works, and so does"
-  warn "applying through the browser extension — only server-side runs are"
-  warn "affected; they stay queued. Retry it any time with:"
-  warn "  cd $DIR && $COMPOSE up -d --build worker"
+  # Two different failures land here: the image didn't build, or it built and
+  # compose refused to start it because the app it depends on isn't healthy
+  # yet. Saying "didn't build" for the second one sends people to debug the
+  # wrong thing, so don't guess — name both and point at the app's logs.
+  warn "The executor didn't start — either its image failed to build, or the"
+  warn "app isn't healthy yet, which compose reports as"
+  warn "  'dependency failed to start: container ... is unhealthy'."
+  warn "Check the app first:  cd $DIR && $COMPOSE logs --tail=50 app"
+  warn "The UI above still works, and so does applying through the browser"
+  warn "extension — only server-side runs are affected; they stay queued."
+  warn "Retry any time with:  cd $DIR && $COMPOSE up -d --build worker"
 fi
 
 # Almost nobody browses a NAS from the NAS itself, and "http://localhost" is
