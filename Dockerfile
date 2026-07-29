@@ -45,13 +45,18 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/pyproject.toml ./
-RUN pip install --upgrade pip && pip install \
-      "fastapi>=0.115" "uvicorn[standard]>=0.30" "sqlalchemy>=2.0.30" "alembic>=1.13" \
-      "pydantic>=2.7" "pydantic-settings>=2.3" "email-validator>=2.1" "psycopg[binary]>=3.1" \
-      "httpx>=0.27" "argon2-cffi>=23.1" "pyotp>=2.9" "qrcode>=7.4" "redis>=5.0" "arq>=0.26" \
-      "beautifulsoup4>=4.12" "python-multipart>=0.0.9" "structlog>=24.1" "anthropic>=0.69" \
-      "websockets>=12.0" "pypdf>=4.2" "python-docx>=1.1"
+# Dependencies come from the project's own metadata, resolved through its
+# lock file. This used to be a hand-copied list of the same packages, which
+# drifted: cryptography — imported by app/services/crypto.py, and so by the
+# whole API — was never added, and the image crashed on import at every boot.
+# A second copy of a dependency list is a copy that will go stale.
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN pip install --upgrade pip uv \
+    && uv export --frozen --no-dev --no-emit-project --no-hashes \
+         --format requirements-txt -o /tmp/requirements.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.txt \
+    && pip uninstall -y uv \
+    && rm -f /tmp/requirements.txt
 
 COPY backend/ ./
 # Built frontend assets (own the static dir) and extension bundles (kept in a
