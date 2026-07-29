@@ -2,11 +2,16 @@
 # ---------------------------------------------------------------------------
 # JobPilot installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh | bash
 #
 # Prefer to read before you run (recommended for any curl|bash):
-#   curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh -o install.sh
+#   curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh -o install.sh
 #   less install.sh && bash install.sh
+#
+# The URL names a branch, and the branch has to exist — raw.githubusercontent
+# returns 404, not a redirect, for one that doesn't. Swap in whatever branch
+# you are tracking. What the installer *downloads* needs no such care: it asks
+# GitHub for the repository's default branch.
 #
 # What it does: checks Docker, clones the repo into ./jobpilot, writes a .env
 # with a freshly generated SECRET_KEY, and starts the stack. It never asks for
@@ -15,7 +20,8 @@
 # Environment overrides:
 #   JOBPILOT_DIR=~/apps/jobpilot   install location (default: ./jobpilot)
 #   JOBPILOT_REPO=owner/name       source repo   (default: jyoung2000/newp)
-#   JOBPILOT_REF=main              branch or tag (default: main)
+#   JOBPILOT_REF=some-branch       branch or tag (default: the repo's own
+#                                  default branch, whatever it is named)
 #   JOBPILOT_PORT=1456             host port     (default: 1456)
 #   JOBPILOT_NO_START=1            set up but don't run docker compose up
 #   JOBPILOT_DETACH=1              keep running after you close the terminal
@@ -28,7 +34,11 @@
 set -euo pipefail
 
 REPO="${JOBPILOT_REPO:-jyoung2000/newp}"
-REF="${JOBPILOT_REF:-main}"
+# Empty means "whatever this repository calls its default branch" — resolved
+# from the GitHub API below. Assuming `main` breaks on any repo that doesn't
+# have one, and the failure looks like a broken installer rather than a
+# missing branch.
+REF="${JOBPILOT_REF:-}"
 DIR="${JOBPILOT_DIR:-$(pwd)/jobpilot}"
 PORT="${JOBPILOT_PORT:-1456}"
 
@@ -106,18 +116,38 @@ fi
 [ "$FETCH" = "git" ] || command -v tar >/dev/null 2>&1 || die "Need tar to unpack the source."
 
 # --- 2. Fetch the source ---------------------------------------------------
-# JOBPILOT_REF may name a branch that doesn't exist yet (e.g. before the first
-# release lands on main); fall back to the repository's default branch and say
-# so rather than failing or pretending we got the requested ref.
+# JOBPILOT_REF may be unset, or may name a branch that doesn't exist. Ask the
+# repository what its default branch is rather than assuming `main` — and say
+# which ref was actually used rather than pretending we got the requested one.
 REMOTE="https://github.com/$REPO.git"
+
+# Print a URL's body on stdout, or nothing. Never fatal: every caller has a
+# fallback, and no network is a normal condition to handle, not to crash on.
+read_url() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --max-time 20 "$1" 2>/dev/null || true
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- --timeout=20 "$1" 2>/dev/null || true
+  fi
+}
+
+# The repository's own default branch, per the GitHub API. Empty if that
+# can't be determined (offline, rate-limited, private repo).
+default_branch() {
+  read_url "https://api.github.com/repos/$REPO" \
+    | grep -o '"default_branch"[[:space:]]*:[[:space:]]*"[^"]*"' \
+    | head -1 \
+    | sed 's/.*"\([^"]*\)"$/\1/'
+}
 
 # Stream a branch/tag tarball into $DIR. Returns non-zero if that ref has no
 # archive, so the caller can try the next candidate.
 download_tarball() {
   ref="$1"
+  [ -n "$ref" ] || return 1
   for kind in heads tags; do
     url="https://codeload.github.com/$REPO/tar.gz/refs/$kind/$ref"
-    if [ "$FETCH" = "curl" ]; then
+    if command -v curl >/dev/null 2>&1; then
       curl -fsSL "$url" 2>/dev/null | tar xz --strip-components=1 -C "$DIR" 2>/dev/null && return 0
     else
       wget -qO- "$url" 2>/dev/null | tar xz --strip-components=1 -C "$DIR" 2>/dev/null && return 0
@@ -128,29 +158,41 @@ download_tarball() {
 
 fetch_source() {
   mkdir -p "$DIR"
-  if download_tarball "$REF"; then
+  if [ -n "$REF" ] && download_tarball "$REF"; then
     ok "Source downloaded ($REF)"
     return 0
   fi
+  [ -n "$REF" ] && warn "Ref '$REF' not found in $REPO — looking for the default branch"
+
+  DEFAULT="$(default_branch)"
+  if [ -n "$DEFAULT" ] && download_tarball "$DEFAULT"; then
+    ok "Source downloaded ($DEFAULT — the repository's default branch)"
+    REF="$DEFAULT"
+    return 0
+  fi
+
+  # No API answer (offline, rate-limited): try the conventional names.
   for fallback in main master; do
-    [ "$fallback" = "$REF" ] && continue
     if download_tarball "$fallback"; then
-      warn "Ref '$REF' not found — using '$fallback' instead"
+      ok "Source downloaded ($fallback)"
+      REF="$fallback"
       return 0
     fi
   done
-  die "Could not download $REPO ($REF) — check the repository name and your network."
+  die "Could not download $REPO — check the repository name and your network.
+    Tried: ${REF:-none given}${DEFAULT:+, $DEFAULT}, main, master"
 }
 
 if [ -d "$DIR/.git" ]; then
   info "Existing install found at $DIR — updating…"
-  if git -C "$DIR" fetch --depth 1 origin "$REF" 2>/dev/null; then
+  if [ -n "$REF" ] && git -C "$DIR" fetch --depth 1 origin "$REF" 2>/dev/null; then
     git -C "$DIR" checkout -q FETCH_HEAD
     ok "Updated to the latest $REF"
   else
+    [ -n "$REF" ] && warn "Ref '$REF' not found — updating from the default branch instead"
     git -C "$DIR" fetch --depth 1 origin HEAD || die "Could not fetch updates from $REMOTE"
     git -C "$DIR" checkout -q FETCH_HEAD
-    warn "Branch '$REF' not found — updated to the repository's default branch instead"
+    ok "Updated to the latest default branch"
   fi
 elif [ -f "$DIR/docker-compose.yml" ]; then
   # A tarball install (no .git). Unpack over it: the archive carries no .env,
@@ -163,11 +205,14 @@ elif [ -e "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ]; then
 elif [ "$FETCH" = "git" ]; then
   info "Creating $DIR and fetching $REPO…"
   mkdir -p "$DIR"
-  if git clone --quiet --depth 1 --branch "$REF" "$REMOTE" "$DIR" 2>/dev/null; then
+  # No ref asked for: a plain clone already lands on the default branch, so
+  # don't ask git for a branch named "".
+  if [ -n "$REF" ] && git clone --quiet --depth 1 --branch "$REF" "$REMOTE" "$DIR" 2>/dev/null; then
     ok "Source downloaded ($REF)"
   elif git clone --quiet --depth 1 "$REMOTE" "$DIR"; then
     ACTUAL="$(git -C "$DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'default branch')"
-    warn "Branch '$REF' not found — using the repository's default branch ($ACTUAL)"
+    [ -n "$REF" ] && warn "Ref '$REF' not found in $REPO — using the default branch instead"
+    ok "Source downloaded ($ACTUAL — the repository's default branch)"
   else
     die "Could not clone $REMOTE — check the repository name and your network."
   fi

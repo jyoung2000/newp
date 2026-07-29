@@ -37,7 +37,7 @@ Unraid web terminal normally kills whatever it was running. `JOBPILOT_DETACH=1`
 re-launches the installer in its own session, so it survives:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh \
   -o /tmp/jobpilot-install.sh
 JOBPILOT_DETACH=1 JOBPILOT_DIR=/mnt/user/appdata/jobpilot \
   bash /tmp/jobpilot-install.sh

@@ -46,13 +46,20 @@ Creates a `jobpilot/` folder, pulls the source from GitHub, generates a
 `SECRET_KEY` and database password, and starts everything:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh | bash
 ```
+
+That URL names a branch, and it has to be a branch that exists —
+`raw.githubusercontent.com` answers `404: Not Found` for one that doesn't,
+rather than redirecting. `claude/jobpilot-assistant-canrub` is this
+repository's default branch today; change that part of the URL if you are
+tracking another one. Only fetching this script is affected — the installer
+asks GitHub which branch to download.
 
 Piping any script to `bash` deserves a look first — the safer form:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh -o install.sh
 less install.sh          # read it
 bash install.sh
 ```
@@ -67,7 +74,7 @@ Options (environment variables):
 |---|---|---|
 | `JOBPILOT_DIR` | `./jobpilot` | Where to install |
 | `JOBPILOT_PORT` | `1456` | Host port |
-| `JOBPILOT_REF` | `main` | Branch or tag (falls back to the default branch) |
+| `JOBPILOT_REF` | the repo's default branch | Branch or tag to install |
 | `JOBPILOT_REPO` | `jyoung2000/newp` | Source repository |
 | `JOBPILOT_NO_START` | – | Set to `1` to set up without starting |
 | `JOBPILOT_DETACH` | – | Set to `1` to keep installing after you close the terminal |
@@ -88,7 +95,7 @@ whatever it was running. `JOBPILOT_DETACH=1` re-launches the installer in its
 own session so a hangup can't reach it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/main/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/jyoung2000/newp/refs/heads/claude/jobpilot-assistant-canrub/install.sh -o install.sh
 JOBPILOT_DETACH=1 bash install.sh          # returns immediately
 tail -f ./jobpilot.install.log             # watch it, or don't
 ```
