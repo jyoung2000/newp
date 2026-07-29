@@ -38,7 +38,11 @@ services:
     # image — the extension you install then matches the server you run.
     image: jobpilot-app:local
     ports:
-      - "1456:1456"
+      # Host port from PORT (install.sh's JOBPILOT_PORT writes it); the
+      # container always listens on 1456, per the `environment:` block below.
+      # Published on every interface, so the UI is reachable at this machine's
+      # LAN address and not only from the host itself.
+      - "${PORT:-1456}:1456"
     env_file:
       # Optional: a missing .env is not a startup error. Every value below has
       # a working default, and SECRET_KEY is generated once into the uploads

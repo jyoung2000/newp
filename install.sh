@@ -302,10 +302,26 @@ else
   warn "  cd $DIR && $COMPOSE up -d --build worker"
 fi
 
+# Almost nobody browses a NAS from the NAS itself, and "http://localhost" is
+# useless from a laptop. Offer this machine's LAN address as well.
+LAN_IP="$(hostname -I 2>/dev/null | tr ' ' '\n' \
+  | grep -E '^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)' | head -1 || true)"
+if [ -n "$LAN_IP" ]; then
+  LAN_URL="http://$LAN_IP:$PORT"
+  echo
+  bold "Open JobPilot at  $LAN_URL"
+  info "(from this machine itself: $URL)"
+else
+  echo
+  bold "Open JobPilot at  $URL"
+  info "From another machine, use this server's address on your network"
+  info "with port $PORT — not localhost."
+fi
+
 cat <<EOF
 
 Next steps
-  1. Open $URL and create your account.
+  1. Open ${LAN_URL:-$URL} and create your account.
   2. Settings → AI — paste your Anthropic API key (stored encrypted).
      Skip this to run fully offline with local heuristics.
   3. Settings → Extension — download and pair the browser extension.
