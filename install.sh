@@ -261,8 +261,13 @@ fi
 
 # --- 4. Build and start ----------------------------------------------------
 echo
-info "Building and starting (first run compiles the UI and extension — a few minutes)…"
-$COMPOSE up -d --build
+# The UI first, on its own. `up --build` with no services named builds every
+# image before it starts a single container, so a slow or broken worker image
+# — the big one, it carries a headful browser — means nothing is listening on
+# the port at all, and the failure looks like "the GUI is down" rather than
+# "one optional service didn't build". The UI needs only the app image.
+info "Building and starting the UI (first run compiles the UI and extension — a few minutes)…"
+$COMPOSE up -d --build db redis app
 
 echo
 info "Waiting for JobPilot to come up…"
@@ -281,6 +286,20 @@ if [ "${READY:-0}" = "1" ]; then
 else
   warn "Started, but $URL/api/health didn't respond yet."
   warn "It may still be migrating. Check logs:  cd $DIR && $COMPOSE logs -f app"
+fi
+
+# Now the executor, with the UI already up. It only runs applications on the
+# server; everything you can see and click works without it, so a failure here
+# is worth reporting plainly rather than aborting an otherwise good install.
+echo
+info "Building the server-side executor (a large image — it ships a real browser)…"
+if $COMPOSE up -d --build worker; then
+  ok "Executor running"
+else
+  warn "The executor image didn't build. The UI above still works, and so does"
+  warn "applying through the browser extension — only server-side runs are"
+  warn "affected; they stay queued. Retry it any time with:"
+  warn "  cd $DIR && $COMPOSE up -d --build worker"
 fi
 
 cat <<EOF
