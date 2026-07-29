@@ -5,9 +5,14 @@
 # ---------------------------------------------------------------------------
 FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1 \
-    DISPLAY=:99 SCREEN_GEOMETRY=1280x900x24
+    DISPLAY=:99 SCREEN_GEOMETRY=1280x900x24 TZ=UTC
 WORKDIR /app
 
+# These pull in tzdata, whose configure step asks for a geographic area. A
+# build has no terminal to answer with, so it doesn't fail — it waits forever.
+# ARG rather than ENV: this is a build-time concern and shouldn't be baked
+# into the shipped image's environment.
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       xvfb x11vnc websockify novnc supervisor \
     && rm -rf /var/lib/apt/lists/*

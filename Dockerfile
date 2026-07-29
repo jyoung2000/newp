@@ -39,6 +39,9 @@ FROM python:3.12-slim AS app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
+# Noninteractive for the same reason as the worker image: a package that wants
+# to ask a configuration question would hang the build rather than fail it.
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 

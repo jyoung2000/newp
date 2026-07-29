@@ -63,3 +63,44 @@ jobs:
       - name: Build both browsers
         working-directory: extension
         run: npm run build && npm run build:firefox
+
+  # The jobs above build from a full source tree, which is not how anyone
+  # installs this. They cannot see a Dockerfile that copies things in the
+  # wrong order, or an apt step that stops to ask a question — so this job
+  # builds the real images and boots the real stack.
+  images:
+    runs-on: ubuntu-latest
+    # A build waiting on a prompt has no terminal to answer it and would sit
+    # here until the six-hour job ceiling. Fail in minutes instead.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Playwright base image is ~1 GB unpacked; the runner's default free
+      # space is enough only after the preinstalled toolchains are gone.
+      - name: Reclaim runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Build the app image
+        run: docker build -f Dockerfile -t jobpilot-app:local .
+
+      - name: Build the worker image
+        run: docker build -f Dockerfile.worker -t jobpilot-worker:ci .
+
+      # Building is not running: this catches a broken entrypoint, a failed
+      # migration, or a service that never becomes healthy.
+      - name: Boot the stack
+        run: |
+          cp .env.example .env
+          sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$(openssl rand -hex 32)|" .env
+          docker compose up -d --wait --wait-timeout 300 db redis app
+
+      - name: Check the API answers
+        run: curl -fsS --retry 5 --retry-delay 5 http://localhost:1456/api/health
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
