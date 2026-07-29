@@ -17,8 +17,13 @@ RUN npm run build
 FROM node:22-slim AS extension
 WORKDIR /build/extension
 COPY extension/package.json extension/package-lock.json* ./
-RUN npm install
+# This layer exists to cache dependencies, so only the manifests are here yet.
+# The package's own postinstall is `wxt prepare`, which reads the entrypoints
+# under src/ and aborts when it can't find them — skip scripts now and run it
+# below, once there is a source tree to prepare.
+RUN npm install --ignore-scripts
 COPY extension/ ./
+RUN npm run postinstall
 RUN npm run build && npm run build:firefox && npm run zip && npm run zip:firefox \
     && mkdir -p /out \
     && cp .output/*-chrome.zip /out/jobpilot-chrome.zip \

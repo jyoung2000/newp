@@ -1,0 +1,37 @@
+# Keeps the build context to actual source. Beyond the transfer cost, a
+# `COPY frontend/ ./` or `COPY extension/ ./` from a working tree that has been
+# built locally would drop the host's node_modules on top of the ones the image
+# just installed — a Linux image running whatever binaries the host happened to
+# have. Everything listed here is either rebuilt inside the image or belongs
+# only to the machine it was created on.
+.git
+.gitignore
+**/node_modules
+
+# Produced by this image's own build stages
+frontend/dist
+extension/.output
+extension/.wxt
+backend/app/static
+backend/app/extension_dist
+plugin
+
+# Local runtime state and secrets — .env especially: it holds the generated
+# SECRET_KEY and database password, and must never be baked into an image.
+.env
+.env.local
+*.sqlite3
+*.db
+data
+uploads
+*.install.log
+
+# Caches
+**/__pycache__
+**/*.py[cod]
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
