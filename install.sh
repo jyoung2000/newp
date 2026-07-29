@@ -185,14 +185,26 @@ fetch_source() {
 
 if [ -d "$DIR/.git" ]; then
   info "Existing install found at $DIR — updating…"
-  if [ -n "$REF" ] && git -C "$DIR" fetch --depth 1 origin "$REF" 2>/dev/null; then
-    git -C "$DIR" checkout -q FETCH_HEAD
-    ok "Updated to the latest $REF"
+  # Land on a real branch with an upstream, not on a detached FETCH_HEAD.
+  # `git pull` is the first thing anyone types in an installed checkout, and
+  # from a detached HEAD it refuses outright ("no tracking information"),
+  # which reads as "the update did nothing" — because it did nothing.
+  BR="$REF"
+  [ -n "$BR" ] || BR="$(default_branch)"
+  if [ -z "$BR" ]; then
+    BR="$(git -C "$DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+    [ "$BR" = "HEAD" ] && BR=main
+  fi
+  if git -C "$DIR" fetch --depth 1 origin \
+       "+refs/heads/$BR:refs/remotes/origin/$BR" 2>/dev/null; then
+    git -C "$DIR" checkout -q -B "$BR" "refs/remotes/origin/$BR"
+    git -C "$DIR" branch -q --set-upstream-to="origin/$BR" "$BR" 2>/dev/null || true
+    ok "Updated to the latest $BR"
   else
-    [ -n "$REF" ] && warn "Ref '$REF' not found — updating from the default branch instead"
+    warn "Branch '$BR' not found on the remote — updating to its current HEAD"
     git -C "$DIR" fetch --depth 1 origin HEAD || die "Could not fetch updates from $REMOTE"
     git -C "$DIR" checkout -q FETCH_HEAD
-    ok "Updated to the latest default branch"
+    ok "Updated (detached at the remote's HEAD; 'git pull' won't work here)"
   fi
 elif [ -f "$DIR/docker-compose.yml" ]; then
   # A tarball install (no .git). Unpack over it: the archive carries no .env,
