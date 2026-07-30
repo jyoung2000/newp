@@ -177,14 +177,39 @@ with the daemon instead — same files, owned by you:
 mkdir -p plugin && docker compose cp app:/app/app/extension_dist/. ./plugin
 ```
 
+### Updating
+
+```bash
+cd ~/jobpilot && ./update.sh
+```
+
+Keeps your `.env`, your database and your uploads. It fetches the latest code,
+lists the commits you're about to run, rebuilds, and restarts — the web UI
+first and on its own, then the executor, so a slow or failing worker build can
+never take the UI down with it. Migrations apply themselves on boot.
+
+| | |
+|---|---|
+| `./update.sh --check` | Say whether an update is available and stop. Doesn't need Docker running. |
+| `./update.sh --no-worker` | Skip the executor rebuild (the big image). |
+| `./update.sh --prune` | Delete the images this update orphaned, once it succeeds. |
+| `make update` / `make update-check` | The same two, from the Makefile. |
+
+It refuses to run over **local edits to tracked files**, listing them rather
+than silently discarding them — `.env` is untracked and never at risk. If the
+extension changed in the update it says so, since your copy of it needs
+refreshing separately. On an install created from a source archive rather than
+git there's no history to pull, and it tells you to re-run the installer, which
+replaces the tree and keeps your `.env`.
+
 ### Everyday commands
 
 ```bash
+./update.sh                  # update in place (see above)
 docker compose logs -f app   # follow the app log
 docker compose restart app   # after editing .env
 docker compose down          # stop
 docker compose down -v       # stop and DELETE all data (Postgres + uploads)
-docker compose up -d --build # update after a git pull
 docker compose --profile plugin run --rm plugin  # refresh ./plugin after a rebuild
 ```
 

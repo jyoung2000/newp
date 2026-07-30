@@ -1,4 +1,4 @@
-.PHONY: help dev test lint typecheck front-build front-dev ext-build ext-zip openapi-types seed migrate sign-firefox up plugin down logs
+.PHONY: help dev test lint typecheck front-build front-dev ext-build ext-zip openapi-types seed migrate sign-firefox up plugin down logs update update-check
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -55,6 +55,12 @@ up: ## docker compose up (app on http://localhost:1456)
 
 plugin: ## Copy the built browser extension out of the image into ./plugin
 	docker compose --profile plugin run --rm plugin
+
+update: ## Pull the latest code and rebuild in place (keeps .env and data)
+	./update.sh
+
+update-check: ## Say whether an update is available, change nothing
+	./update.sh --check
 
 down: ## docker compose down
 	docker compose down
