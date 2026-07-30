@@ -31,6 +31,7 @@ from app.models import (
 )
 from app.schemas.auth import OkResponse, UserSettings
 from app.security import hash_token, new_token
+from app.services import groups
 from app.services.ingest import (
     canonicalize_url,
     enrich_listings,
@@ -420,6 +421,21 @@ class ResolveResponse(BaseModel):
     run_active: bool
 
 
+
+def _group_indices(fields: list[FieldIn]) -> list[int | None]:
+    """Number repeating-group fields across the whole form.
+
+    A field can only be resolved one at a time, but three identical reference
+    blocks are only distinguishable by the order they appear in — so the batch
+    is examined once, here, and each field is told which entry it belongs to.
+    """
+    detected = [
+        groups.detect(f.label, f.name, f.surrounding_text) for f in fields
+    ]
+    groups.assign_indices(detected)
+    return [d.index if d is not None else None for d in detected]
+
+
 @router.post("/applications/{application_id}/resolve", response_model=ResolveResponse)
 def resolve_fields(
     application_id: int,
@@ -434,8 +450,9 @@ def resolve_fields(
     app = _owned_running_app(db, user, application_id)
     listing = db.get(JobListing, app.listing_id)
     data = load_user_data(db, user)
+    group_indices = _group_indices(payload.fields)
     resolutions: list[ResolutionOut] = []
-    for field_in in payload.fields:
+    for field_in, group_index in zip(payload.fields, group_indices, strict=True):
         resolution = resolve_field(
             db,
             user,
@@ -446,6 +463,7 @@ def resolve_fields(
                 required=field_in.required,
                 name=field_in.name,
                 surrounding_text=field_in.surrounding_text,
+                group_index=group_index,
             ),
             listing=listing,
             data=data,
@@ -521,8 +539,9 @@ def autofill(
     from app.services.resolver import load_user_data
 
     data = load_user_data(db, user)
+    group_indices = _group_indices(payload.fields)
     resolutions: list[ResolutionOut] = []
-    for field_in in payload.fields:
+    for field_in, group_index in zip(payload.fields, group_indices, strict=True):
         resolution = resolve_field(
             db,
             user,
@@ -533,6 +552,7 @@ def autofill(
                 required=field_in.required,
                 name=field_in.name,
                 surrounding_text=field_in.surrounding_text,
+                group_index=group_index,
             ),
             # No listing: an ad-hoc form isn't tied to a saved job, so
             # listing-specific tailoring is simply unavailable here.

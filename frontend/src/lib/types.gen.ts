@@ -3150,6 +3150,18 @@ export interface components {
             text?: string | null;
             /** File Id */
             file_id?: number | null;
+            /** Company */
+            company?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Years Known */
+            years_known?: number | null;
+            /** Reference Type */
+            reference_type?: ("professional" | "personal") | null;
+            /** May Contact */
+            may_contact?: boolean | null;
         };
         /** RecommendationOut */
         RecommendationOut: {
@@ -3165,6 +3177,18 @@ export interface components {
             text?: string | null;
             /** File Id */
             file_id?: number | null;
+            /** Company */
+            company?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Years Known */
+            years_known?: number | null;
+            /** Reference Type */
+            reference_type?: ("professional" | "personal") | null;
+            /** May Contact */
+            may_contact?: boolean | null;
             /** Id */
             id: number;
         };
@@ -3728,6 +3752,20 @@ export interface components {
             is_current: boolean;
             /** Bullets */
             bullets?: string[];
+            /** Manager Name */
+            manager_name?: string | null;
+            /** Manager Title */
+            manager_title?: string | null;
+            /** Manager Email */
+            manager_email?: string | null;
+            /** Manager Phone */
+            manager_phone?: string | null;
+            /** May Contact Employer */
+            may_contact_employer?: boolean | null;
+            /** Reason For Leaving */
+            reason_for_leaving?: string | null;
+            /** Summary */
+            summary?: string | null;
         };
         /** WorkExperienceOut */
         WorkExperienceOut: {
@@ -3748,6 +3786,20 @@ export interface components {
             is_current: boolean;
             /** Bullets */
             bullets?: string[];
+            /** Manager Name */
+            manager_name?: string | null;
+            /** Manager Title */
+            manager_title?: string | null;
+            /** Manager Email */
+            manager_email?: string | null;
+            /** Manager Phone */
+            manager_phone?: string | null;
+            /** May Contact Employer */
+            may_contact_employer?: boolean | null;
+            /** Reason For Leaving */
+            reason_for_leaving?: string | null;
+            /** Summary */
+            summary?: string | null;
             /** Id */
             id: number;
             /** Order Index */

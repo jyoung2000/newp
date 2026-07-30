@@ -286,6 +286,67 @@ Everything configurable lives at **Settings** in the UI, in six sections:
 | **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; **restore a full backup**, import a profile with a merge preview, import job lists |
 | **Danger zone** | Delete the account and all of its data |
 
+## Work history and references — the repeating groups
+
+A résumé needs a job title, a company and dates. An **application form** wants
+more, for each job: who you reported to, how to reach them, whether it may,
+why you left, and a paragraph describing the work. Then it asks the same kind of
+thing about each of your references. Those are the two repeating groups on
+almost every employer form, and they are where an autofill either earns its
+keep or stops and asks you fifteen questions.
+
+**Profile → Work** — add as many roles as you like. Per role:
+
+| | |
+|---|---|
+| Job title, company, location | The résumé basics |
+| Start / end date, "I currently work here" | A current role fills a form's end-date box with **Present** |
+| Manager name, their title, email, phone | What employment-history sections ask for |
+| May an employer contact them? | **Yes / No / don't answer.** Left unanswered, JobPilot asks you rather than guessing |
+| Reason for leaving | Disabled for a role you still hold |
+| Summary, and highlights (one per line) | The summary fills a description box; the highlights are for a résumé. If there's no summary, the highlights are joined into one |
+
+**Profile → References** — as many as you like, professional or personal, each
+with a relationship, where they work, both an email and a phone, years known,
+and their own may-we-contact answer.
+
+Order is the interface: **the top entry is a form's "Employer 1" / "Reference
+1"**, and both tabs number the entries so you can see it. Move them with the
+arrows. Each card also shows what's still missing — *"Forms will ask you for:
+manager, reason for leaving"* — because an empty field here becomes a question
+mid-application.
+
+### How the plugin knows what goes where
+
+Employer and reference fields are matched **before** the ordinary field
+patterns, and read three signals:
+
+1. **The name attribute.** `work_history[1][company]`, `employer_2_supervisor`,
+   `references[0][email]`. A bracketed index is the 0-based array the form
+   posts; a number a person typed is 1-based.
+2. **The label.** "Employer 2 — Reason for leaving", "Reference #3 email",
+   "Second employer", "Most recent employer".
+3. **The block it sits in.** The common real shape is a plain `Email` label
+   inside a fieldset headed *References* — so the legend decides the group and
+   the label decides the field.
+
+When nothing says *which* employer or reference — three identical reference
+blocks, no numbers anywhere — they are numbered **by the order they appear in
+the form**, which is why the whole form is examined at once rather than field
+by field.
+
+Running before the flat patterns is not an optimisation, it's a correctness
+fix. `Reference 1 email` matches the ordinary `e-?mail` pattern, so without
+this layer your **own** address would be typed into your reference's box. The
+reverse is guarded too: a field naming the applicant ("Your email address")
+stays yours even inside an employment block, and an unattributed `Email` in an
+employment block is left for you rather than guessed at.
+
+Nothing here is invented. An employer you haven't entered, or a field you left
+blank, is highlighted and left to you — with the reason naming the entry:
+*"Asks about employer 3; that entry or field is empty in your profile
+(Profile → Work)"*.
+
 ## Accounts and the head admin
 
 **The first account registered on an install becomes the head admin.** There is

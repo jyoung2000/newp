@@ -94,6 +94,25 @@ class WorkExperience(TimestampMixin, Base):
     bullets: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # --- What employment-history sections actually ask for ------------------
+    # A résumé needs a title, a company and dates. An application form's
+    # employment history wants a supervisor, how to reach them, whether it may,
+    # why the job ended, and a prose description of the work — every one of
+    # which used to stop and ask the user mid-application.
+    manager_name: Mapped[str | None] = mapped_column(String(200))
+    manager_title: Mapped[str | None] = mapped_column(String(200))
+    manager_email: Mapped[str | None] = mapped_column(String(320))
+    manager_phone: Mapped[str | None] = mapped_column(String(60))
+    # Tri-state on purpose: True = yes, False = no, None = not answered. A form
+    # asking "may we contact this employer?" must never be answered by a
+    # default, and "no" is a real answer a user needs to be able to give.
+    may_contact_employer: Mapped[bool | None] = mapped_column(Boolean)
+    reason_for_leaving: Mapped[str | None] = mapped_column(Text)
+    # Prose, distinct from `bullets`. Forms want a paragraph in a textarea;
+    # résumés want bullets. Keeping both means neither is a lossy rewrite of
+    # the other.
+    summary: Mapped[str | None] = mapped_column(Text)
+
 
 class Education(TimestampMixin, Base):
     __tablename__ = "educations"
@@ -121,6 +140,22 @@ class Recommendation(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     title: Mapped[str | None] = mapped_column(String(200))
     relationship_to_user: Mapped[str | None] = mapped_column(String(200))
+    # Legacy combined "email or phone" field. Kept so old exports still import
+    # and nobody's data is dropped; the migration splits existing values into
+    # email/phone below, and the UI edits those instead.
     contact: Mapped[str | None] = mapped_column(String(320))
     text: Mapped[str | None] = mapped_column(Text)
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id", ondelete="SET NULL"))
+
+    # --- What reference sections ask for ------------------------------------
+    # Reference blocks are the other repeating group on an application form,
+    # and they ask for each person separately: where they work, both ways to
+    # reach them, how long you have known them, and whether they may be called.
+    company: Mapped[str | None] = mapped_column(String(200))
+    email: Mapped[str | None] = mapped_column(String(320))
+    phone: Mapped[str | None] = mapped_column(String(60))
+    years_known: Mapped[int | None] = mapped_column(Integer)
+    # "professional" | "personal" — forms routinely ask for a set number of
+    # each, so which kind this is has to be part of the record.
+    reference_type: Mapped[str | None] = mapped_column(String(20))
+    may_contact: Mapped[bool | None] = mapped_column(Boolean)

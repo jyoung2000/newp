@@ -36,6 +36,7 @@ from app.models import (
     CustomField,
     JobListing,
     Profile,
+    Recommendation,
     SavedAnswer,
     StoredFile,
     User,
@@ -43,6 +44,7 @@ from app.models import (
     utcnow,
 )
 from app.services import field_library as lib
+from app.services import groups
 from app.services.normalize import (
     FUZZY_MATCH_THRESHOLD,
     label_similarity,
@@ -72,6 +74,10 @@ class DetectedField:
     required: bool = False
     name: str | None = None  # HTML name/id attribute
     surrounding_text: str = ""
+    # Which entry of a repeating group this field belongs to, when the batch
+    # pre-pass worked it out from the order fields appear in the form. None
+    # means "take it from the field's own text, or assume the first".
+    group_index: int | None = None
 
 
 @dataclass
@@ -98,6 +104,7 @@ class UserData:
     files: list[StoredFile]
     custom_fields: list[CustomField]
     saved_answers: list[SavedAnswer]
+    references: list[Recommendation] = dc_field(default_factory=list)
     # The requesting user's own AI credentials/model (Settings → AI),
     # falling back to the environment configuration.
     llm_config: LLMConfig | None = None
@@ -122,6 +129,13 @@ def load_user_data(db: Session, user: User) -> UserData:
         ),
         saved_answers=list(
             db.scalars(select(SavedAnswer).where(SavedAnswer.user_id == user.id))
+        ),
+        references=list(
+            db.scalars(
+                select(Recommendation)
+                .where(Recommendation.user_id == user.id)
+                .order_by(Recommendation.id)
+            )
         ),
     )
 
@@ -281,6 +295,50 @@ def resolve_field(
     # Knockout classification up front (heuristic; LLM refines later). EEO is
     # detected by the library entries and the LLM mapping downstream.
     knockout = classify_knockout_heuristic(label).is_knockout
+
+    # --- 1. Repeating groups (employment history, references) --------------
+    # Before the flat library, deliberately. The library answers questions
+    # about the applicant, and several of its patterns ("e-?mail", "phone",
+    # "city") also match fields that belong to a previous employer or a
+    # reference — which would type the applicant's own details into someone
+    # else's box.
+    group = groups.detect(label, field_.name, field_.surrounding_text)
+    if group is not None:
+        if field_.group_index is not None:
+            group.index = field_.group_index
+        answer = groups.resolve(group, data.work_experiences, data.references)
+        if answer is not None:
+            return Resolution(
+                status="resolved",
+                value=answer.value,
+                formatted=answer.formatted,
+                kind=answer.kind,
+                source="profile",
+                confidence=1.0,
+                field_key=f"{group.kind}.{group.attribute}",
+                is_knockout=knockout,
+                reason=groups.describe(group),
+            )
+        # Recognised as belonging to a group but unanswerable — the entry does
+        # not exist, or that part of it is blank. Stored answers may still
+        # cover it; otherwise it is the user's to fill, and it must not fall
+        # through to patterns meant for the applicant's own details.
+        stored = _from_custom_or_saved(normalized, label, field_, data, db, knockout=knockout)
+        if stored is not None:
+            return stored
+        which = (group.index or 0) + 1
+        noun = "employer" if group.kind == groups.EMPLOYER else "reference"
+        return Resolution(
+            status="needs_human",
+            kind=field_.field_type,
+            source="none",
+            field_key=f"{group.kind}.{group.attribute}",
+            is_knockout=knockout,
+            reason=(
+                f"Asks about {noun} {which}; that entry or field is empty in your "
+                f"profile (Profile → {'Work' if group.kind == groups.EMPLOYER else 'References'})"
+            ),
+        )
 
     # --- 1a. Years-per-skill (more specific than any library entry) --------
     years = lib.match_years_skill(label, data.profile)

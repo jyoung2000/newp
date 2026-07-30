@@ -78,6 +78,10 @@ def export_profile(db: Session, user: User) -> dict[str, Any]:
                 "title": w.title, "company": w.company, "location": w.location,
                 "start_date": _iso(w.start_date), "end_date": _iso(w.end_date),
                 "is_current": w.is_current, "bullets": w.bullets, "order_index": w.order_index,
+                "manager_name": w.manager_name, "manager_title": w.manager_title,
+                "manager_email": w.manager_email, "manager_phone": w.manager_phone,
+                "may_contact_employer": w.may_contact_employer,
+                "reason_for_leaving": w.reason_for_leaving, "summary": w.summary,
             }
             for w in db.scalars(
                 select(WorkExperience)
@@ -99,6 +103,9 @@ def export_profile(db: Session, user: User) -> dict[str, Any]:
             {
                 "name": r.name, "title": r.title, "relationship_to_user": r.relationship_to_user,
                 "contact": r.contact, "text": r.text,
+                "company": r.company, "email": r.email, "phone": r.phone,
+                "years_known": r.years_known, "reference_type": r.reference_type,
+                "may_contact": r.may_contact,
             }
             for r in db.scalars(select(Recommendation).where(Recommendation.user_id == user.id))
         ],
@@ -175,6 +182,10 @@ def import_profile(
             start_date=_date(r.get("start_date")), end_date=_date(r.get("end_date")),
             is_current=r.get("is_current", False), bullets=r.get("bullets", []),
             order_index=r.get("order_index", 0),
+            manager_name=r.get("manager_name"), manager_title=r.get("manager_title"),
+            manager_email=r.get("manager_email"), manager_phone=r.get("manager_phone"),
+            may_contact_employer=r.get("may_contact_employer"),
+            reason_for_leaving=r.get("reason_for_leaving"), summary=r.get("summary"),
         ),
         "work",
     )
@@ -197,6 +208,9 @@ def import_profile(
             user_id=user.id, name=r["name"], title=r.get("title"),
             relationship_to_user=r.get("relationship_to_user"), contact=r.get("contact"),
             text=r.get("text"),
+            company=r.get("company"), email=r.get("email"), phone=r.get("phone"),
+            years_known=r.get("years_known"), reference_type=r.get("reference_type"),
+            may_contact=r.get("may_contact"),
         ),
         "recommendations",
     )

@@ -16,6 +16,15 @@ class WorkExperienceIn(BaseModel):
     end_date: dt.date | None = None
     is_current: bool = False
     bullets: list[str] = Field(default_factory=list)
+    # What employment-history sections ask for beyond a résumé's worth.
+    manager_name: str | None = Field(default=None, max_length=200)
+    manager_title: str | None = Field(default=None, max_length=200)
+    manager_email: str | None = Field(default=None, max_length=320)
+    manager_phone: str | None = Field(default=None, max_length=60)
+    # None = not answered. Never defaulted — see models/profile.py.
+    may_contact_employer: bool | None = None
+    reason_for_leaving: str | None = Field(default=None, max_length=2000)
+    summary: str | None = Field(default=None, max_length=5000)
 
 
 class WorkExperienceOut(WorkExperienceIn):
@@ -45,9 +54,16 @@ class RecommendationIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     title: str | None = None
     relationship_to_user: str | None = None
+    # Legacy single "email or phone" box; email/phone below supersede it.
     contact: str | None = None
     text: str | None = None
     file_id: int | None = None
+    company: str | None = Field(default=None, max_length=200)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=60)
+    years_known: int | None = Field(default=None, ge=0, le=99)
+    reference_type: Literal["professional", "personal"] | None = None
+    may_contact: bool | None = None
 
 
 class RecommendationOut(RecommendationIn):
