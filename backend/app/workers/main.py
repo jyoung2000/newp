@@ -126,7 +126,9 @@ async def run_scheduled_searches(ctx: dict) -> int:
                 posted_within_days=target.posted_within_days,
             )
             try:
-                execute_search(db, user, query, target.sources, run)
+                # The target's terms are job titles, so gate on them: only
+                # those roles and their recognised variations are kept.
+                execute_search(db, user, query, target.sources, run, role_titles=target.title_terms)
                 db.commit()
                 ran += 1
             except Exception:

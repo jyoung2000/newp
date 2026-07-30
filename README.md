@@ -286,6 +286,86 @@ Everything configurable lives at **Settings** in the UI, in six sections:
 | **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; **restore a full backup**, import a profile with a merge preview, import job lists |
 | **Danger zone** | Delete the account and all of its data |
 
+## First run — guided setup
+
+A new account lands in a nine-screen setup rather than an empty dashboard. One
+idea per screen, and the order is deliberate: the **résumé** first, because
+reading a file beats typing what is already in it, then identity, then the
+**knockout questions** — right to work, sponsorship, age, notice period —
+because those are the ones that stop an application dead when they are missing.
+
+| Screen | Asks for | Skippable |
+|---|---|---|
+| Welcome | Nothing — the three rules JobPilot works by | ✓ |
+| Résumé | Upload → parse → pre-fill profile, work history and education | ✓ |
+| About you | Name, email, phone, city/region/country, LinkedIn, portfolio | first/last/email required |
+| Work history | Roles, with the manager, dates and reason for leaving forms ask for | ✓ |
+| Eligibility and pay | Authorised countries, sponsorship, work model, relocation, notice period, years of experience, age, salary expectation | ✓ |
+| Self-identification | Gender, race/ethnicity, veteran, disability — **voluntary**, declined by default | ✓ |
+| References | People who can vouch for you | ✓ |
+| Roles you want | The job titles to search for — as many as you like | ✓ |
+| Done | What was set up, and where to change it | — |
+
+Nothing asked here is arbitrary: **every field is one the resolver can already
+answer on a real form** (`backend/app/services/field_library.py`). A screen that
+collected something JobPilot could not use on an application would be a
+questionnaire, not setup.
+
+The flow keeps to three rules. **Nothing is trapped** — the work-history and
+references screens are literally the Profile editors, so anything entered is
+edited later in the same place, with no second implementation. **Nothing is
+lost** — each screen saves as you leave it, the step you reached is remembered,
+and closing the tab resumes rather than restarts. **Nothing is invented** — the
+voluntary block declines unless you fill it in, and every yes/no has a "no
+answer" option that makes JobPilot ask you at form time instead of guessing.
+
+Re-enter it any time at `/onboarding`; it is additive, so it will not overwrite
+what is already there.
+
+## Roles you want, and how variations are matched
+
+A role is a job title you would take. Add as many as you like — during setup, or
+afterwards under **Search → Roles you want**, which is the same editor.
+
+Each role is searched **every three hours** by the scheduler that already runs
+(`backend/app/workers/main.py:run_scheduled_searches`), and matches land in your
+job list to apply to when you are ready. Nothing is applied to automatically.
+
+The part that makes this useful is that a role matches its **variations**:
+
+```
+Software Engineer  → also Software Developer · Senior Software Engineer
+                     · SWE · Backend Engineer · Full Stack Developer
+                   ✗ not Engineering Manager, Sales Engineer, Data Engineer
+```
+
+`backend/app/services/titles.py` reduces a title to three things and compares
+those:
+
+```
+"Sr. Backend Software Engineer II"
+  level     = senior       (noise for matching — a senior still wants the plain role)
+  head      = engineer     (the noun that decides what the job IS)
+  modifiers = {backend, software}
+```
+
+Two titles match when their **heads** agree, and are scored on how far their
+modifiers agree. That one rule is what keeps "Engineering Manager" out of a
+search for "Software Engineer" — same word, different job — while letting
+"Software Developer" in. It is deterministic and offline by design: scheduled
+discovery runs unattended, so it cannot depend on a model call or an API key.
+
+**The variations are shown before you save, and they are editable.** The
+vocabulary is curated and cannot know every industry, so a title it doesn't
+recognise says so and matches on the words themselves — and you can add
+variations of your own. Each listing records which role it answered, so the list
+can tell you why a job is there.
+
+Without this gate a saved role is a firehose: board connectors routinely return
+an employer's *entire* job list, and each source searches its own way. Searching
+by hand is unaffected — an ad-hoc search for "python" is a keyword search, not a
+title, and gating it would reject everything.
+
 ## Work history and references — the repeating groups
 
 A résumé needs a job title, a company and dates. An **application form** wants

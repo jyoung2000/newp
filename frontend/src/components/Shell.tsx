@@ -36,6 +36,24 @@ function Shell() {
   )
 }
 
+/**
+ * Signed-in, but without the app chrome. The onboarding flow is full-screen
+ * and carries its own header — nesting it in the Shell would give it two.
+ */
+export function BareAuthedLayout() {
+  const { status } = useAuth()
+  if (status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Spinner className="h-6 w-6 text-accent-600" />
+      </div>
+    )
+  }
+  if (status === 'anon') return <Navigate to="/login" replace />
+  return <Outlet />
+}
+
+
 export function ProtectedLayout() {
   const { status } = useAuth()
 

@@ -12,6 +12,7 @@ from app.api import (
     listings,
     meta,
     profile,
+    roles,
     runs,
     saved_answers,
     search,
@@ -43,5 +44,6 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(transfer.router, prefix="/transfer", tags=["transfer"])
 api_router.include_router(settings_api.router, prefix="/settings", tags=["settings"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(roles.router, prefix="/roles", tags=["roles"])
 
 ws_router = ws_module.router

@@ -16,6 +16,8 @@ export const qk = {
   savedAnswers: (q?: string) => ['saved-answers', q ?? ''] as const,
 
   sources: ['search', 'sources'] as const,
+  roles: ['roles'] as const,
+  rolePreview: (title: string) => ['roles', 'preview', title] as const,
   searchTargets: ['search', 'targets'] as const,
   searchRun: (id: string) => ['search', 'run', id] as const,
 

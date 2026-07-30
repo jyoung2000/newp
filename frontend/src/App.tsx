@@ -1,5 +1,5 @@
 import { createBrowserRouter, Outlet } from 'react-router-dom'
-import { ProtectedLayout } from './components/Shell'
+import { BareAuthedLayout, ProtectedLayout } from './components/Shell'
 import { Toaster } from './components/Toaster'
 import { Login } from './routes/Login'
 import { Register } from './routes/Register'
@@ -33,10 +33,14 @@ export const router = createBrowserRouter([
       { path: '/login', element: <Login /> },
       { path: '/register', element: <Register /> },
       {
+        // Full-screen, no sidebar: setup is its own room.
+        element: <BareAuthedLayout />,
+        children: [{ path: '/onboarding', element: <Onboarding /> }],
+      },
+      {
         element: <ProtectedLayout />,
         children: [
           { path: '/', element: <Dashboard /> },
-          { path: '/onboarding', element: <Onboarding /> },
           { path: '/search', element: <Search /> },
           { path: '/listings', element: <Listings /> },
           { path: '/queue', element: <Queue /> },

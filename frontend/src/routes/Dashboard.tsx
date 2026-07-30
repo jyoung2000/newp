@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { qk } from '../lib/queryKeys'
+import { useUserSettings } from '../lib/hooks'
 import type { Dashboard as DashboardData, RunOut } from '../lib/types'
 import { PageHeader } from '../components/PageHeader'
 import { StatCard } from '../components/StatCard'
@@ -113,6 +114,15 @@ function RunStatusCard() {
 }
 
 export function Dashboard() {
+  // A brand-new account lands in setup rather than an empty dashboard. Only
+  // from here: a deep link the user asked for is never hijacked, and both
+  // "finish" and "I'll do this later" set the flags that stop this firing.
+  const onboardingState = useUserSettings()
+  const settings = onboardingState.data
+  if (settings && !settings.onboarding_completed && !settings.onboarding_dismissed) {
+    return <Navigate to="/onboarding" replace />
+  }
+
   const [days, setDays] = useState(30)
   const { data, isLoading } = useQuery({
     queryKey: qk.analytics(days),

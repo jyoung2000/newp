@@ -108,6 +108,10 @@ class UserSettings(BaseModel):
     notifications: NotificationSettings = NotificationSettings()
     timezone: str = "UTC"
     onboarding_dismissed: bool = False
+    # Which step of the guided setup the user reached, so closing the tab and
+    # coming back resumes rather than restarts. None = not started.
+    onboarding_step: str | None = None
+    onboarding_completed: bool = False
 
 
 class CsrfResponse(BaseModel):

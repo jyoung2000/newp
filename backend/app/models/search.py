@@ -55,6 +55,10 @@ class JobListing(TimestampMixin, Base):
     apply_url: Mapped[str | None] = mapped_column(String(1000))
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     company: Mapped[str] = mapped_column(String(300), nullable=False)
+    # Which of the user's saved roles this listing answered, when it arrived
+    # through a role target. Stored rather than recomputed so the list can say
+    # why a job is there even after the role is renamed or removed.
+    matched_role: Mapped[str | None] = mapped_column(String(200))
     location: Mapped[str | None] = mapped_column(String(300))
     remote: Mapped[bool | None] = mapped_column(Boolean)
     salary_min: Mapped[int | None] = mapped_column(Integer)

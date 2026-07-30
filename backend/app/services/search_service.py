@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.db import get_sessionmaker
 from app.logging_conf import get_logger
 from app.models import DiscoveredOrg, JobListing, SourceState, User, utcnow
+from app.services import titles
 from app.services.ingest import enrich_listings, upsert_listings
 from app.sources import (
     ForbiddenSourceError,
@@ -25,7 +26,7 @@ from app.sources import (
     WebSearchDiscovery,
     get_sources,
 )
-from app.sources.base import OrgRef, SearchQuery
+from app.sources.base import OrgRef, RawListing, SearchQuery
 from app.sources.http import SourceBlockedError, get_http
 from app.sources.jsonld import fetch_jobpostings
 from app.sources.websearch import harvest_org_refs
@@ -45,6 +46,10 @@ class SearchRun:
     completed_sources: int = 0
     found: int = 0
     new: int = 0
+    # Listings a source returned that were not the role being searched for.
+    # Reported so a user can see the gate working rather than wonder where
+    # everything went.
+    off_target: int = 0
     per_source: dict[str, dict[str, Any]] = field(default_factory=dict)
     error: str | None = None
     listing_ids: list[int] = field(default_factory=list)
@@ -154,13 +159,46 @@ def _save_orgs(db: Session, user: User, refs: list[OrgRef]) -> int:
     return added
 
 
+def _gate_titles(
+    raw: list[RawListing], role_titles: list[str] | None
+) -> tuple[list[RawListing], int]:
+    """Keep only the listings whose title answers one of these roles.
+
+    Board connectors routinely return an employer's entire job list, and a
+    source's own keyword search is its own business — so without this, one saved
+    role delivers everything a company is hiring for. Returns (kept, rejected).
+    """
+    if not role_titles:
+        return raw, 0
+    kept = [item for item in raw if titles.matches(role_titles, item.title)]
+    return kept, len(raw) - len(kept)
+
+
+def _stamp_matched_role(rows: list[JobListing], role_titles: list[str] | None) -> None:
+    """Record which role each new listing answered, so the list can say so."""
+    if not role_titles:
+        return
+    for row in rows:
+        role, score = titles.best_match(role_titles, row.title)
+        if role is not None and score >= titles.TITLE_MATCH_THRESHOLD:
+            row.matched_role = role
+
+
 def execute_search(
     db: Session,
     user: User,
     query: SearchQuery,
     source_names: list[str],
     run: SearchRun,
+    role_titles: list[str] | None = None,
 ) -> None:
+    """Run the configured sources and store what they return.
+
+    `role_titles` turns on the title gate: only listings whose title is one of
+    those roles, or a recognised variation of one, are kept. Saved role targets
+    pass their titles; an ad-hoc keyword search passes nothing, because "python"
+    is a skill rather than a title and gating on it would reject every result.
+    """
     http = get_http()
     all_sources = {s.name: s for s in get_sources()}
     wanted = source_names or [
@@ -192,7 +230,10 @@ def execute_search(
                 except Exception:
                     continue
                 if postings:
-                    new_rows, _ = upsert_listings(db, user, postings)
+                    kept, rejected = _gate_titles(postings, role_titles)
+                    run.off_target += rejected
+                    new_rows, _ = upsert_listings(db, user, kept)
+                    _stamp_matched_role(new_rows, role_titles)
                     run.listing_ids.extend(r.id for r in new_rows)
                     run.new += len(new_rows)
                     direct += len(postings)
@@ -240,9 +281,13 @@ def execute_search(
 
         try:
             raw = source.search(query, http, orgs)
+            found = len(raw)
+            raw, rejected = _gate_titles(raw, role_titles)
             new_rows, dupes = upsert_listings(db, user, raw)
+            _stamp_matched_role(new_rows, role_titles)
             run.listing_ids.extend(r.id for r in new_rows)
-            run.found += len(raw)
+            run.found += found
+            run.off_target += rejected
             run.new += len(new_rows)
             state.status = "ok"
             state.detail = None

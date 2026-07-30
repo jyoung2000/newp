@@ -11,6 +11,7 @@ import type {
   SourceInfo,
 } from '../lib/types'
 import { PageHeader } from '../components/PageHeader'
+import { RolesStep } from '../components/onboarding/RolesStep'
 import { Card, CardHeader } from '../components/Card'
 import { Input, Select } from '../components/Field'
 import { ChipInput } from '../components/ChipInput'
@@ -243,6 +244,17 @@ export function Search() {
   return (
     <div>
       <PageHeader title="Search jobs" subtitle="Find real openings across the sources you’re allowed to use" />
+
+      <Card className="mb-4">
+        <CardHeader
+          title="Roles you want"
+          subtitle="Searched every few hours, including variations of each title"
+          icon={<Icon name="star" />}
+        />
+        {/* The same editor the onboarding uses, so a role added during setup is
+            edited here with no second implementation to keep in step. */}
+        <RolesStep />
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
