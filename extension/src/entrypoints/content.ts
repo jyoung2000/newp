@@ -1,7 +1,9 @@
 // Content script: runs a single application fill on the page the background
 // navigated to. All challenge halts route to the human — never solved here.
 import browser from "webextension-polyfill";
+import { autofillThisPage } from "../lib/autofill";
 import { extractJob } from "../lib/capture";
+import { showToast } from "../lib/reviewbar";
 import { challengeCleared, ChallengeHalt, clearOverlay, runFill, showChallengeHalt } from "../lib/fill";
 import type { BackgroundToContent, NextJob } from "../lib/types";
 
@@ -18,6 +20,14 @@ export default defineContentScript({
         // The user clicked "Save this job" in the popup. Read-only: describe
         // the page they are already looking at, change nothing.
         return Promise.resolve({ ok: true, job: extractJob() });
+      }
+      if (msg.type === "bg.autofillNow") {
+        // One-click / one-keystroke fill of this page. Independent of the
+        // queue: no application, and it never submits.
+        void autofillThisPage().catch((e: unknown) => {
+          showToast(e instanceof Error ? e.message : "Autofill failed");
+        });
+        return Promise.resolve({ ok: true });
       }
       if (msg.type === "bg.fillJob") {
         currentJob = (msg as { job: NextJob }).job;

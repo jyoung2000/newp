@@ -488,6 +488,145 @@ def resolve_fields(
     )
 
 
+# --- Autofill the page in front of you -------------------------------------
+# The queue-driven path above resolves fields for an application JobPilot
+# chose. This one resolves them for whatever form the user is looking at right
+# now, on one click or one keystroke, with no application and no queue. Same
+# resolver, same knockout and EEO handling, same rule that a value JobPilot is
+# not sure of is left for the human rather than guessed at.
+
+
+class AutofillRequest(BaseModel):
+    url: str = ""
+    title: str = ""
+    fields: list[FieldIn]
+
+
+class AutofillResponse(BaseModel):
+    resolutions: list[ResolutionOut]
+    # Counts so the extension can tell the user what happened without
+    # recomputing it: "filled 11, 2 need you".
+    filled: int = 0
+    needs_human: int = 0
+
+
+@router.post("/autofill", response_model=AutofillResponse)
+def autofill(
+    payload: AutofillRequest,
+    device: Device = Depends(get_device),
+    user: User = Depends(get_device_user),
+    db: Session = Depends(get_db),
+) -> AutofillResponse:
+    from app.models import StoredFile
+    from app.services.resolver import load_user_data
+
+    data = load_user_data(db, user)
+    resolutions: list[ResolutionOut] = []
+    for field_in in payload.fields:
+        resolution = resolve_field(
+            db,
+            user,
+            ResolverField(
+                label=field_in.label,
+                field_type=field_in.field_type,
+                options=field_in.options,
+                required=field_in.required,
+                name=field_in.name,
+                surrounding_text=field_in.surrounding_text,
+            ),
+            # No listing: an ad-hoc form isn't tied to a saved job, so
+            # listing-specific tailoring is simply unavailable here.
+            listing=None,
+            data=data,
+        )
+        out = ResolutionOut(
+            ref=field_in.ref,
+            label=field_in.label,
+            status=resolution.status,
+            value=resolution.value,
+            formatted=resolution.formatted,
+            kind=resolution.kind,
+            source=resolution.source,
+            confidence=resolution.confidence,
+            field_key=resolution.field_key,
+            is_knockout=resolution.is_knockout,
+            is_eeo=resolution.is_eeo,
+            auto_check=resolution.auto_check,
+            reason=resolution.reason,
+            draft=resolution.draft,
+        )
+        if resolution.status == "resolved" and resolution.kind == "file":
+            file_row = db.get(StoredFile, int(resolution.value))
+            if file_row is not None and file_row.user_id == user.id:
+                out.file_url = f"/api/ext/files/{file_row.id}/download"
+                out.file_name = file_row.filename
+        resolutions.append(out)
+    log.info(
+        "ext.autofill",
+        user_id=user.id,
+        device_id=device.id,
+        fields=len(resolutions),
+        host=(urlparse(payload.url).hostname or "") if payload.url else "",
+    )
+    return AutofillResponse(
+        resolutions=resolutions,
+        filled=sum(1 for r in resolutions if r.status == "resolved"),
+        needs_human=sum(1 for r in resolutions if r.status != "resolved"),
+    )
+
+
+class OcrLabelRequest(BaseModel):
+    # A crop around one field, PNG, base64. Bounded well below the API limit;
+    # a label that needs more pixels than this isn't a label.
+    image_b64: str = Field(max_length=400_000)
+    nearby_text: str = ""
+
+
+class OcrLabelResponse(BaseModel):
+    text: str = ""
+    # False when offline mode is on or no key is configured — the caller then
+    # leaves the field to the human instead of guessing.
+    available: bool = True
+
+
+@router.post("/ocr-label", response_model=OcrLabelResponse)
+def ocr_label(
+    payload: OcrLabelRequest,
+    device: Device = Depends(get_device),
+    user: User = Depends(get_device_user),
+    db: Session = Depends(get_db),
+) -> OcrLabelResponse:
+    """Last resort for naming a field: read the pixels around it.
+
+    Reached only when a field has no name, no label, no aria-label and no
+    placeholder — a canvas-drawn form, or a control labelled by an image. The
+    crop is one field's worth of screen, sent to the model the user configured
+    with their own key. In offline mode nothing is sent and the field goes to
+    the human, which is the same answer JobPilot gives for anything it cannot
+    determine."""
+    from app.llm.client import LLMError, get_llm
+    from app.llm.config import config_for_user
+
+    client = get_llm(config_for_user(user))
+    if not client.available:
+        return OcrLabelResponse(text="", available=False)
+    instruction = (
+        "This is a screenshot crop of a single form field on a job application. "
+        "Reply with the field's visible label text and nothing else — no "
+        "punctuation, no explanation. If there is no label, reply with an empty "
+        "response."
+    )
+    if payload.nearby_text:
+        instruction += f"\nText near the field, for context: {payload.nearby_text[:200]}"
+    try:
+        text = client.read_image_text(image_b64=payload.image_b64, instruction=instruction)
+    except LLMError as exc:
+        log.info("ext.ocr_label_failed", user_id=user.id, error=str(exc))
+        return OcrLabelResponse(text="", available=True)
+    # A label, not a paragraph. Anything longer means it read the whole page.
+    return OcrLabelResponse(text=text[:120].strip(), available=True)
+
+
 @router.get("/files/{file_id}/download")
 def ext_download_file(
     file_id: int,

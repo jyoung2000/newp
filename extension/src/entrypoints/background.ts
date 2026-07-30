@@ -43,11 +43,30 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((raw: unknown, sender: browser.Runtime.MessageSender): Promise<unknown> => {
-    const msg = raw as ContentToBackground | { type: "capture" };
+    const msg = raw as ContentToBackground | { type: "capture" } | CropRequest;
     if (msg.type === "capture") {
       return captureVisibleTab(sender.tab?.windowId).then((dataUrl) => ({ dataUrl }));
     }
+    if (msg.type === "capture.crop") {
+      return cropVisibleTab(msg as CropRequest, sender.tab?.windowId);
+    }
     return handleContentMessage(msg as ContentToBackground).then(() => ({ ok: true }));
+  });
+
+  // Keyboard shortcut: fill the form in the active tab without opening the
+  // popup. The content script does the work; this only forwards the trigger.
+  browser.commands?.onCommand.addListener((command: string) => {
+    if (command !== "autofill-form") return;
+    void (async () => {
+      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id == null) return;
+      try {
+        await browser.tabs.sendMessage(tab.id, { type: "bg.autofillNow" });
+      } catch {
+        // No content script in this tab — a browser page, or a tab that
+        // predates the extension being installed or reloaded.
+      }
+    })();
   });
 
   void setupAlarms();
@@ -58,6 +77,49 @@ export default defineBackground(() => {
 async function setupAlarms(): Promise<void> {
   await browser.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 });
   await browser.alarms.create(POLL_ALARM, { periodInMinutes: 0.25 });
+}
+
+interface CropRequest {
+  type: "capture.crop";
+  rect: { x: number; y: number; width: number; height: number };
+  dpr: number;
+}
+
+/**
+ * Crop the visible tab to one field's neighbourhood, for the last-resort label
+ * read. Content scripts can't call captureVisibleTab, and sending a whole
+ * screenshot to the server to read one label would be both slow and far more
+ * of the page than the job needs — so the crop happens here, and only the crop
+ * travels.
+ */
+async function cropVisibleTab(
+  req: CropRequest,
+  windowId?: number,
+): Promise<{ imageB64?: string }> {
+  const dataUrl = await captureVisibleTab(windowId);
+  if (!dataUrl) return {};
+  try {
+    const dpr = req.dpr > 0 ? req.dpr : 1;
+    const blob = await (await fetch(dataUrl)).blob();
+    const bitmap = await createImageBitmap(blob);
+    // The screenshot is in device pixels; the rect came from CSS pixels.
+    const sx = Math.max(0, Math.round(req.rect.x * dpr));
+    const sy = Math.max(0, Math.round(req.rect.y * dpr));
+    const sw = Math.min(bitmap.width - sx, Math.round(req.rect.width * dpr));
+    const sh = Math.min(bitmap.height - sy, Math.round(req.rect.height * dpr));
+    if (sw <= 0 || sh <= 0) return {};
+    const canvas = new OffscreenCanvas(sw, sh);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return {};
+    ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+    const cropped = await canvas.convertToBlob({ type: "image/png" });
+    const buf = new Uint8Array(await cropped.arrayBuffer());
+    let binary = "";
+    for (const byte of buf) binary += String.fromCharCode(byte);
+    return { imageB64: btoa(binary) };
+  } catch {
+    return {};
+  }
 }
 
 async function captureVisibleTab(windowId?: number): Promise<string | undefined> {

@@ -357,13 +357,85 @@ already unpacked — skip the "unzip it" step below and point *Load unpacked* at
 Bundles are version-stamped; the popup nudges you when the container has a
 newer build.
 
-### Pairing
+### Linking — one code, copied from the browser
 
-Settings → Extension shows a one-time **6-digit code** and a QR. Open the
-extension popup, enter your JobPilot server URL and the code, and name the
-device. The extension exchanges the code for a device token scoped to your
-account, kept in `storage.local`. Devices are listed and revocable in
-Settings; the popup and the container both show link status.
+**Settings → Extension → Copy link code.** Paste it into the extension popup.
+That's the whole flow — the popup has one field, and pasting a valid code links
+immediately without hunting for a button.
+
+The code is a single token that carries both halves of what pairing needs:
+
+```
+JP1-<base64url of {"u": "http://192.168.8.119:1456", "c": "418207"}>
+```
+
+The URL inside is the origin **your browser actually reached JobPilot on**, so
+it is correct by construction. This matters more than it sounds: the old flow
+asked for a server URL and a 6-digit code as separate fields, and the URL is
+the half a person can't reasonably answer — `localhost` is right only when the
+browser and the server are the same machine, which on a NAS they never are. Set
+`PUBLIC_URL` and that wins instead, since it's the deliberate answer.
+
+The base64 is not encryption and isn't meant to be; it exists so the thing is
+one selectable token with no spaces or slashes to break a copy. The pairing
+code inside is still single-use, short-lived and server-verified. Treat a link
+code as carefully as the code it carries.
+
+Prefer the old way? **Scan a QR code, or enter it by hand** under the code
+reveals the QR, the 6 digits and the server URL, and the popup keeps manual
+fields behind *Enter it manually instead* — useful when you're reading a code
+off a phone screen.
+
+The extension exchanges the code for a device token scoped to your account,
+kept in `storage.local`. Devices are listed and revocable in Settings; the
+popup and the container both show link status.
+
+### Autofill — one click, or one keystroke
+
+On any application form:
+
+- **Extension popup → Fill this form**, or
+- **Alt+Shift+F** (a suggestion — rebind it at `chrome://extensions/shortcuts`,
+  or Firefox's *Manage Extension Shortcuts*; the popup shows your actual
+  binding, and says so when none is set)
+
+Values come from what **you** entered in JobPilot — profile, custom fields,
+saved answers — resolved by the same server-side resolver the queued runs use,
+so knockout questions and EEO fields are handled identically. No application,
+no run and no saved listing are involved; it works on any form you're looking
+at.
+
+Two rules it will not bend:
+
+- **It never submits.** It fills, highlights, reports what it did, and stops.
+  You press the button.
+- **A CAPTCHA or verification step halts it** before anything is typed. If one
+  appears mid-fill, it stops there and leaves what's already entered for you to
+  check. Software never answers a challenge — see
+  [docs/CAPTCHA.md](docs/CAPTCHA.md).
+
+Anything the resolver isn't confident about is left **empty and highlighted**
+rather than guessed at. A wrong answer on an application is worse than a blank
+one you notice.
+
+#### How it decides what goes where
+
+In order, stopping at the first that works:
+
+1. **The DOM's own labelling** — `aria-label`, `aria-labelledby`,
+   `<label for=…>`, a wrapping `<label>`, a `<fieldset>` legend, then the
+   `placeholder`.
+2. **The `name` attribute**, plus the surrounding text of the field's container
+   for context.
+3. **Reading the pixels** — last resort, for a field with none of the above: a
+   canvas-drawn form, or a control labelled only by an image. The extension
+   crops the screenshot to that one field and asks your configured model to
+   read the label.
+
+Step 3 is bounded on purpose. It runs only for fields that produced nothing
+from steps 1–2, it sends a crop of a single field rather than the page, and
+**in offline mode it doesn't run at all** — the field goes to you instead,
+which is the same answer JobPilot gives for anything else it can't determine.
 
 ### "Save this job" — capturing the page you're on
 

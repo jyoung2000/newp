@@ -89,8 +89,11 @@ function Pairing() {
     <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Pair a device</h4>
-          <p className="text-xs text-neutral-400">Enter this code in the extension to link it to your account.</p>
+          <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Link a browser</h4>
+          <p className="text-xs text-neutral-400">
+            Copy one code, paste it into the extension. It carries this server's address with it,
+            so there's nothing to type.
+          </p>
         </div>
         <Button variant="secondary" size="sm" icon="refresh" loading={generate.isPending} onClick={() => generate.mutate()}>
           {pairing ? 'New code' : 'Generate code'}
@@ -98,26 +101,80 @@ function Pairing() {
       </div>
 
       {pairing ? (
-        <div className="mt-4 grid gap-4 sm:grid-cols-[auto,1fr] sm:items-center">
-          <div className="flex justify-center">
-            <div className="rounded-xl border border-neutral-200 bg-white p-3 [&_svg]:h-36 [&_svg]:w-36 dark:border-neutral-700" dangerouslySetInnerHTML={{ __html: pairing.qr_svg }} />
-          </div>
+        <div className="mt-4 grid gap-4">
+          {/* The one thing to copy, first and biggest. */}
           <div>
-            <div className="flex items-center gap-1.5">
-              {pairing.code.split('').map((d, i) => (
-                <span key={i} className="flex h-11 w-9 items-center justify-center rounded-lg bg-neutral-100 text-xl font-semibold tabular-nums text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
-                  {d}
-                </span>
-              ))}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <code className="min-w-0 flex-1 break-all rounded-xl bg-neutral-100 px-3 py-2.5 font-mono text-xs leading-relaxed text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200">
+                {pairing.link_code}
+              </code>
+              <CopyLinkCode value={pairing.link_code} />
             </div>
             <p className="mt-2 text-xs text-neutral-400">
               <Countdown expiresAt={pairing.expires_at} />
             </p>
-            <p className="mt-1 break-all text-xs text-neutral-400">Server: {pairing.app_url}</p>
           </div>
+
+          <details className="text-xs text-neutral-500 dark:text-neutral-400">
+            <summary className="cursor-pointer select-none">
+              Scan a QR code, or enter it by hand
+            </summary>
+            <div className="mt-3 grid gap-4 sm:grid-cols-[auto,1fr] sm:items-center">
+              <div className="flex justify-center">
+                <div className="rounded-xl border border-neutral-200 bg-white p-3 [&_svg]:h-36 [&_svg]:w-36 dark:border-neutral-700" dangerouslySetInnerHTML={{ __html: pairing.qr_svg }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  {pairing.code.split('').map((d, i) => (
+                    <span key={i} className="flex h-11 w-9 items-center justify-center rounded-lg bg-neutral-100 text-xl font-semibold tabular-nums text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
+                      {d}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 break-all">Server: {pairing.app_url}</p>
+                <p className="mt-1">
+                  Both halves of the link code, if you'd rather type them into the extension's
+                  manual fields.
+                </p>
+              </div>
+            </div>
+          </details>
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** Copy button that confirms it worked, and degrades to select-all when the
+ *  clipboard API is unavailable — plain http origins don't always grant it. */
+function CopyLinkCode({ value }: { value: string }) {
+  const { push } = useToast()
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      push({
+        title: 'Select and copy it manually',
+        tone: 'info',
+        message: 'This browser blocked clipboard access on a plain http:// page.',
+      })
+    }
+  }
+
+  return (
+    <Button
+      variant="primary"
+      size="sm"
+      icon={copied ? 'check' : 'grip'}
+      className="shrink-0"
+      onClick={() => void copy()}
+    >
+      {copied ? 'Copied' : 'Copy link code'}
+    </Button>
   )
 }
 

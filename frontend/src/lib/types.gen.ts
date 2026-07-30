@@ -1251,6 +1251,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ext/autofill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autofill */
+        post: operations["autofill_api_ext_autofill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ext/ocr-label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ocr Label
+         * @description Last resort for naming a field: read the pixels around it.
+         *
+         *     Reached only when a field has no name, no label, no aria-label and no
+         *     placeholder — a canvas-drawn form, or a control labelled by an image. The
+         *     crop is one field's worth of screen, sent to the model the user configured
+         *     with their own key. In offline mode nothing is sent and the field goes to
+         *     the human, which is the same answer JobPilot gives for anything it cannot
+         *     determine.
+         */
+        post: operations["ocr_label_api_ext_ocr_label_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ext/files/{file_id}/download": {
         parameters: {
             query?: never;
@@ -1863,6 +1907,36 @@ export interface components {
              * @default 0
              */
             open_interventions: number;
+        };
+        /** AutofillRequest */
+        AutofillRequest: {
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Fields */
+            fields: components["schemas"]["FieldIn"][];
+        };
+        /** AutofillResponse */
+        AutofillResponse: {
+            /** Resolutions */
+            resolutions: components["schemas"]["ResolutionOut"][];
+            /**
+             * Filled
+             * @default 0
+             */
+            filled: number;
+            /**
+             * Needs Human
+             * @default 0
+             */
+            needs_human: number;
         };
         /** Body_apply_import_api_transfer_profile_apply_post */
         Body_apply_import_api_transfer_profile_apply_post: {
@@ -2550,6 +2624,29 @@ export interface components {
             /** Webhook Url */
             webhook_url?: string | null;
         };
+        /** OcrLabelRequest */
+        OcrLabelRequest: {
+            /** Image B64 */
+            image_b64: string;
+            /**
+             * Nearby Text
+             * @default
+             */
+            nearby_text: string;
+        };
+        /** OcrLabelResponse */
+        OcrLabelResponse: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+        };
         /** OkResponse */
         OkResponse: {
             /**
@@ -2598,6 +2695,8 @@ export interface components {
             expires_at: string;
             /** App Url */
             app_url: string;
+            /** Link Code */
+            link_code: string;
         };
         /** ParsedContact */
         ParsedContact: {
@@ -5994,6 +6093,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResolveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    autofill_api_ext_autofill_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutofillRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutofillResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ocr_label_api_ext_ocr_label_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OcrLabelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcrLabelResponse"];
                 };
             };
             /** @description Validation Error */

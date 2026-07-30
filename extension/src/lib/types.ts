@@ -43,6 +43,8 @@ export interface DetectedField {
   required: boolean;
   name: string | null;
   surrounding_text: string;
+  // True when the label came from reading the pixels, not the DOM.
+  ocr_label?: boolean;
 }
 
 export interface Resolution {
@@ -62,6 +64,17 @@ export interface Resolution {
   draft: string | null;
   file_url: string | null;
   file_name: string | null;
+}
+
+export interface AutofillResponse {
+  resolutions: Resolution[];
+  filled: number;
+  needs_human: number;
+}
+
+export interface OcrLabelResponse {
+  text: string;
+  available: boolean;
 }
 
 export interface ResolveResponse {
@@ -96,6 +109,9 @@ export interface InterventionRequest {
 
 export type BackgroundToContent =
   | { type: "bg.fillJob"; job: NextJob }
+  // One-click / shortcut autofill of the page in front of the user. Carries no
+  // application: it is not part of a queued run.
+  | { type: "bg.autofillNow" }
   | { type: "bg.resume"; applicationId: number }
   | { type: "bg.stop" }
   | { type: "bg.interventionsAnswered"; applicationId: number };

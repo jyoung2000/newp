@@ -96,3 +96,15 @@ input:checked + .slider::before { transform: translateX(18px); }
 }
 a { color: var(--accent); }
 .small { font-size: 11px; }
+
+/* The single link code is pasted, not typed: give it room to wrap and a
+   monospace face so a stray character is visible. */
+.link-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}

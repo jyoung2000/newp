@@ -7,7 +7,7 @@ signatures, same contract, nothing sent to Anthropic.
 """
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -71,6 +71,53 @@ class LLMClient:
         if parsed is None:
             raise LLMError("Model returned no parseable structured output")
         return parsed
+
+    def read_image_text(
+        self,
+        *,
+        image_b64: str,
+        media_type: str = "image/png",
+        instruction: str,
+        max_tokens: int = 200,
+    ) -> str:
+        """Read the text in a small image crop. Used as the last resort for a
+        form field whose label exists only as pixels — a canvas-rendered form,
+        or an icon-only control with no name, label or placeholder.
+
+        Deliberately narrow: it is handed a crop of one field, and it returns
+        text. It never sees a whole page, and callers must check `available`
+        first — in offline mode nothing leaves the machine and the field goes
+        to the human instead."""
+        assert self._client is not None, "read_image_text() must not be called in dry-run mode"
+        import anthropic
+
+        image_block: anthropic.types.ImageBlockParam = {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": cast(Any, media_type),
+                "data": image_b64,
+            },
+        }
+        text_block: anthropic.types.TextBlockParam = {"type": "text", "text": instruction}
+        try:
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": [image_block, text_block]}],
+            )
+        except anthropic.APIStatusError as exc:
+            log.warning("llm.api_error", status=exc.status_code, task="read_image_text")
+            raise LLMError(f"Anthropic API error {exc.status_code}: {exc.message}") from exc
+        except anthropic.APIConnectionError as exc:
+            raise LLMError(f"Could not reach the Anthropic API: {exc}") from exc
+        if response.stop_reason == "refusal":
+            raise LLMError("The model declined this request (stop_reason=refusal)")
+        # Content blocks are a wide union; only text blocks carry a label.
+        parts = [
+            block.text for block in response.content if isinstance(block, anthropic.types.TextBlock)
+        ]
+        return " ".join(parts).strip()
 
 
 # Clients are cached per distinct configuration so a user's own key doesn't

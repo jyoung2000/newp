@@ -1,10 +1,12 @@
 // Typed client for the JobPilot backend, authenticated by the device token.
 import browser from "webextension-polyfill";
 import type {
+  AutofillResponse,
   DetectedField,
   InterventionRequest,
   InterventionState,
   NextJobResponse,
+  OcrLabelResponse,
   ResolveResponse,
   StoredState,
 } from "./types";
@@ -140,6 +142,47 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   const detail = body?.detail;
   if (typeof detail === "string" && detail) return detail;
   return `${fallback} (${res.status})`;
+}
+
+// --- One-click autofill ----------------------------------------------------
+
+export interface AutofillFieldIn {
+  ref: string;
+  label: string;
+  field_type: string;
+  options: string[];
+  required: boolean;
+  name: string | null;
+  surrounding_text: string;
+}
+
+export async function autofill(payload: {
+  url: string;
+  title: string;
+  fields: AutofillFieldIn[];
+}): Promise<AutofillResponse> {
+  const res = await authed("/api/ext/autofill", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    // Resolving can involve model calls for free-text answers; give it room,
+    // but not forever — a hung request should say so rather than hang the page.
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "Autofill failed"));
+  return (await res.json()) as AutofillResponse;
+}
+
+// Last resort for a field with no name, label, aria-label or placeholder: send
+// a crop of it and let the server read the pixels. Returns empty text when the
+// user is offline or has no key configured, and the field goes to the human.
+export async function ocrLabel(imageB64: string, nearbyText: string): Promise<OcrLabelResponse> {
+  const res = await authed("/api/ext/ocr-label", {
+    method: "POST",
+    body: JSON.stringify({ image_b64: imageB64, nearby_text: nearbyText }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) return { text: "", available: false };
+  return (await res.json()) as OcrLabelResponse;
 }
 
 export async function nextJob(): Promise<NextJobResponse> {

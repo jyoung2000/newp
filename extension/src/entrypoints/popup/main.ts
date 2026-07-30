@@ -2,6 +2,7 @@ import browser from "webextension-polyfill";
 import * as api from "../../lib/api";
 import type { CapturedJob } from "../../lib/capture";
 import { hasDebuggerPermission, requestDebuggerPermission, TabRelay } from "../../lib/relay";
+import { parseLinkCode, resolvePasted } from "../../lib/linkcode";
 import type { StoredState } from "../../lib/types";
 
 const app = document.getElementById("app")!;
@@ -37,23 +38,42 @@ function header(online: boolean): void {
 }
 
 function renderPairing(state: StoredState): void {
+  // One field. The link code carries the server URL with it, so there is
+  // nothing to work out and nothing to retype — copy it from JobPilot →
+  // Settings → Extension, paste it here.
   const card = document.createElement("div");
   card.className = "card";
   card.innerHTML = `
-    <label>JobPilot server URL</label>
-    <input type="url" id="server" value="${state.serverUrl}" placeholder="http://localhost:1456" />
-    <label>Pairing code (Settings → Extension in JobPilot)</label>
-    <input type="text" id="code" class="code-input" maxlength="6" inputmode="numeric" placeholder="000000" />
-    <label>Device name</label>
-    <input type="text" id="name" value="${defaultDeviceName()}" />
+    <label for="link">Paste your link code</label>
+    <textarea id="link" class="link-input" rows="3"
+      placeholder="JP1-…"
+      autocomplete="off" spellcheck="false"></textarea>
+    <div class="muted small">
+      In JobPilot: <b>Settings → Extension → Copy link code</b>.
+    </div>
     <div class="error" id="err" style="display:none"></div>
-    <button class="btn-primary" id="pair">Pair this browser</button>
+    <button class="btn-primary" id="pair" style="margin-top:8px">Link this browser</button>
+    <details style="margin-top:10px">
+      <summary class="muted small">Enter it manually instead</summary>
+      <label for="server" style="margin-top:8px">JobPilot server URL</label>
+      <input type="url" id="server" value="${state.serverUrl}" placeholder="http://192.168.1.10:1456" />
+      <label for="code">6-digit pairing code</label>
+      <input type="text" id="code" class="code-input" maxlength="6" inputmode="numeric" placeholder="000000" />
+    </details>
     <div class="note">
       JobPilot fills forms in <b>this</b> browser, using your own logged-in
       sessions and your own answers. A human always solves any CAPTCHA.
     </div>`;
   app.appendChild(card);
   card.querySelector<HTMLButtonElement>("#pair")!.addEventListener("click", () => void doPair());
+  const link = card.querySelector<HTMLTextAreaElement>("#link")!;
+  link.focus();
+  // Pasting is the whole interaction; don't also make them find the button.
+  link.addEventListener("paste", () => {
+    setTimeout(() => {
+      if (parseLinkCode(link.value)) void doPair();
+    }, 0);
+  });
 }
 
 function defaultDeviceName(): string {
@@ -63,18 +83,39 @@ function defaultDeviceName(): string {
 }
 
 async function doPair(): Promise<void> {
-  const server = (document.getElementById("server") as HTMLInputElement).value.trim().replace(/\/$/, "");
-  const code = (document.getElementById("code") as HTMLInputElement).value.trim();
-  const name = (document.getElementById("name") as HTMLInputElement).value.trim() || defaultDeviceName();
   const err = document.getElementById("err")!;
   err.style.display = "none";
-  if (code.length !== 6) {
-    err.textContent = "Enter the 6-digit code from JobPilot.";
+  const fail = (message: string): void => {
+    err.textContent = message;
     err.style.display = "block";
+  };
+
+  const pasted = (document.getElementById("link") as HTMLTextAreaElement).value;
+  const manualServer = (document.getElementById("server") as HTMLInputElement).value
+    .trim()
+    .replace(/\/$/, "");
+  const manualCode = (document.getElementById("code") as HTMLInputElement).value.trim();
+
+  // The pasted link code wins; the manual fields are the fallback for someone
+  // reading a code off a phone screen.
+  let target = pasted.trim() ? resolvePasted(pasted, manualServer) : null;
+  if (!target && /^\d{6}$/.test(manualCode) && manualServer) {
+    target = { serverUrl: manualServer, code: manualCode };
+  }
+  if (!target) {
+    fail(
+      pasted.trim()
+        ? "That doesn't look like a link code. Copy it again from JobPilot → Settings → Extension."
+        : "Paste your link code, or open “Enter it manually instead”.",
+    );
     return;
   }
+
+  // The device names itself; one less box to fill in for no information gained.
+  const name = defaultDeviceName();
   try {
-    const result = await api.pair(server, code, name, getBrowserName());
+    const result = await api.pair(target.serverUrl, target.code, name, getBrowserName());
+    const server = target.serverUrl;
     await api.setState({
       serverUrl: server,
       token: result.token,
@@ -194,7 +235,63 @@ async function doCapture(
   }
 }
 
+// --- Fill this form -------------------------------------------------------
+// The other half of "one click": the user is on an application form and wants
+// their own answers in it. Nothing is submitted — they press the button.
+
+async function renderAutofill(): Promise<void> {
+  const card = document.createElement("div");
+  card.className = "card";
+  const shortcut = await autofillShortcut();
+  card.innerHTML = `
+    <div class="capture-head"><b>Fill this form</b></div>
+    <div class="muted small">
+      Uses the answers you entered in JobPilot. Nothing is submitted, and any
+      CAPTCHA or verification stays yours to finish.
+    </div>
+    <div class="error" id="fill-err" style="display:none"></div>
+    <button class="btn-primary" id="fill" style="margin-top:8px">Fill this form</button>
+    <div class="muted small" style="margin-top:6px">
+      ${shortcut ? `Shortcut: <b>${shortcut}</b>` : "No shortcut is set — assign one in your browser's extension shortcuts."}
+    </div>`;
+  app.appendChild(card);
+
+  const button = card.querySelector<HTMLButtonElement>("#fill")!;
+  const err = card.querySelector<HTMLElement>("#fill-err")!;
+  button.addEventListener("click", () => {
+    void (async () => {
+      err.style.display = "none";
+      button.disabled = true;
+      button.textContent = "Filling…";
+      try {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id == null) throw new Error("No active tab");
+        await browser.tabs.sendMessage(tab.id, { type: "bg.autofillNow" });
+        // The page shows its own result banner; close so the user can see it.
+        window.close();
+      } catch {
+        err.textContent =
+          "JobPilot can't reach this tab. Reload the page and try again — tabs opened before the extension was installed aren't connected yet.";
+        err.style.display = "block";
+        button.disabled = false;
+        button.textContent = "Fill this form";
+      }
+    })();
+  });
+}
+
+/** The user's actual binding, which may differ from the suggested one. */
+async function autofillShortcut(): Promise<string> {
+  try {
+    const commands = await browser.commands.getAll();
+    return commands.find((c) => c.name === "autofill-form")?.shortcut || "";
+  } catch {
+    return "";
+  }
+}
+
 async function renderPaired(state: StoredState, online: boolean): Promise<void> {
+  await renderAutofill();
   renderCapture(state);
 
   let serverVersion = "";

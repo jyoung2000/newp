@@ -35,12 +35,12 @@ async function screenshotDataUrl(): Promise<string | undefined> {
   return undefined;
 }
 
-function guard(startUrl: string): void {
+export function guard(startUrl: string): void {
   const check = detectChallenge(startUrl);
   if (check.detected) throw new ChallengeHalt(check.detail || "challenge", check.kind || "challenge");
 }
 
-async function applyResolution(
+export async function applyResolution(
   field: LiveField,
   resolution: Resolution,
   profile: human.TimingProfile,

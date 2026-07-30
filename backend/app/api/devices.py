@@ -16,6 +16,7 @@ from app.deps import get_current_user
 from app.models import Device, PairingCode, User, utcnow
 from app.schemas.auth import OkResponse
 from app.security import hash_token, new_pairing_code
+from app.services.link_code import build_link_code
 
 router = APIRouter()
 
@@ -27,6 +28,12 @@ class PairingCodeOut(BaseModel):
     qr_svg: str
     expires_at: dt.datetime
     app_url: str
+    # One string to paste into the extension, carrying both halves of what
+    # pairing needs. Asking someone to copy a 6-digit code AND retype the
+    # server URL fails in the ordinary case: the URL that works is the one
+    # they are browsing right now, not "localhost", and they have no way to
+    # know that.
+    link_code: str
 
 
 class DeviceOut(BaseModel):
@@ -58,12 +65,20 @@ def create_pairing_code(
         )
     )
     settings = get_settings()
+    # request.base_url is the origin this browser actually reached the app on —
+    # a LAN address, a hostname, a reverse-proxied domain, whatever works from
+    # here. That is exactly the URL the extension needs, and the one nobody can
+    # guess. PUBLIC_URL wins when set, since that is the deliberate answer.
     app_url = settings.public_url or str(request.base_url).rstrip("/")
     payload = f"{app_url}/#pair={code}"
     buf = io.BytesIO()
     qrcode.make(payload, image_factory=qrcode.image.svg.SvgPathImage).save(buf)
     return PairingCodeOut(
-        code=code, qr_svg=buf.getvalue().decode(), expires_at=expires, app_url=app_url
+        code=code,
+        qr_svg=buf.getvalue().decode(),
+        expires_at=expires,
+        app_url=app_url,
+        link_code=build_link_code(app_url, code),
     )
 
 

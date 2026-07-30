@@ -20,6 +20,16 @@ export default defineConfig({
     optional_permissions: ["debugger"],
     host_permissions: ["<all_urls>"],
     action: { default_title: "JobPilot", default_popup: "popup.html" },
+    // Autofill without opening the popup. The shortcut is a suggestion; both
+    // browsers let the user rebind it (chrome://extensions/shortcuts, or
+    // about:addons → Manage Extension Shortcuts) and will silently drop a
+    // suggestion that collides with something they already use.
+    commands: {
+      "autofill-form": {
+        suggested_key: { default: "Alt+Shift+F", mac: "Alt+Shift+F" },
+        description: "JobPilot: fill this form",
+      },
+    },
     ...(browser === "firefox"
       ? {
           browser_specific_settings: {
