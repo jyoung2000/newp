@@ -63,7 +63,7 @@ export function MobileNav({ badgeCount }: { badgeCount: number }) {
               <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-200">{user?.email}</p>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {NAV_ITEMS.map((item) => (
+              {NAV_ITEMS.filter((i) => !i.adminOnly || user?.is_admin).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

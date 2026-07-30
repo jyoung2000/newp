@@ -59,6 +59,15 @@ def get_current_user(
     return user
 
 
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Gate for account management. 403, not 404 — the caller is authenticated,
+    it just isn't an admin, and pretending the route doesn't exist would only
+    make a legitimate permission problem harder to diagnose."""
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator access required")
+    return user
+
+
 def get_device(request: Request, db: Session = Depends(get_db)) -> Device:
     """Bearer device-token auth for the browser extension."""
     auth = request.headers.get("authorization", "")

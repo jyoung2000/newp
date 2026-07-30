@@ -28,7 +28,7 @@ export function Sidebar({ badgeCount }: { badgeCount: number }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => !item.adminOnly || user?.is_admin).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

@@ -7,6 +7,7 @@ export const qk = {
   settings: ['settings'] as const,
   aiSettings: ['settings', 'ai'] as const,
   sessions: ['sessions'] as const,
+  users: ['users'] as const,
 
   profile: ['profile'] as const,
   files: ['files'] as const,

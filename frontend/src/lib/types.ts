@@ -12,6 +12,8 @@ export type LoginResponse = Schemas['LoginResponse']
 export type CsrfResponse = Schemas['CsrfResponse']
 export type SessionOut = Schemas['SessionOut']
 export type TotpSetupResponse = Schemas['TotpSetupResponse']
+export type AdminUserOut = Schemas['AdminUserOut']
+export type AdminCreateUserRequest = Schemas['AdminCreateUserRequest']
 
 export type ProfileFull = Schemas['ProfileFull']
 export type ProfileOut = Schemas['ProfileOut']

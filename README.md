@@ -261,6 +261,40 @@ Everything configurable lives at **Settings** in the UI, in six sections:
 | **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; import profile with a merge preview, import job lists |
 | **Danger zone** | Delete the account and all of its data |
 
+## Accounts and the head admin
+
+**The first account registered on an install becomes the head admin.** There is
+no bootstrap password and nothing to set up: open the UI on a fresh install,
+create your account, and it holds the role. Admins get a **Users** item in the
+navigation that nobody else sees.
+
+| Action | Where |
+|---|---|
+| See every account, its role, two-factor state and active sessions | Users |
+| Create an account for someone (with a temporary password) | Users → Add an account |
+| Grant or revoke administrator | Users → Make admin / Revoke admin |
+| Reset a password without the old one (signs that account out everywhere) | Users → Reset password |
+| Delete an account and everything in it | Users → Delete |
+
+Two things this role deliberately does **not** do:
+
+- **It does not open anyone else's job data.** Profiles, listings, runs and
+  applications stay scoped to the user who owns them, enforced at the query
+  layer and asserted by `tests/test_isolation.py`. Managing an account and
+  reading its contents are different powers; only the first is granted.
+- **It does not include the seeded demo account.** `demo@jobpilot.local` is
+  created unattended with a password published in this file, so it never holds
+  the role — and its existence doesn't stop the first real account from
+  claiming it.
+
+An install can't be left with no administrator: the last admin can't be demoted
+or deleted while other accounts still exist. A one-person install is the
+exception — deleting the only account is just leaving, and the next
+registration takes the role again.
+
+Upgrading an existing install promotes the earliest non-demo account, so
+whoever set it up keeps managing it.
+
 ### Settings → AI
 
 Your **Anthropic API key is set here**, not only in `.env`:

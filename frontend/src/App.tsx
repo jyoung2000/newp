@@ -12,6 +12,7 @@ import { Interventions } from './routes/Interventions'
 import { Applications } from './routes/Applications'
 import { Profile } from './routes/Profile'
 import { Settings } from './routes/Settings'
+import { Users } from './routes/Users'
 import { NotFound } from './routes/NotFound'
 
 // Root layout so global chrome (toasts) lives inside the router context and
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
           { path: '/applications', element: <Applications /> },
           { path: '/profile', element: <Profile /> },
           { path: '/settings', element: <Settings /> },
+          { path: '/users', element: <Users /> },
           { path: '*', element: <NotFound /> },
         ],
       },

@@ -6,7 +6,7 @@ import io
 import qrcode
 import qrcode.image.svg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -85,15 +85,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
     email = payload.email.lower()
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+    # The first account on an install becomes the head admin, so a fresh
+    # deployment has someone who can manage accounts without a bootstrap
+    # password or a shell. Tested on "is there an admin" rather than "is the
+    # users table empty": the seeded demo account exists before any human
+    # registers, and its password is published — it must not carry the role,
+    # and it must not stop the first real account from claiming it.
+    has_admin = db.scalar(select(User.id).where(User.is_admin.is_(True)).limit(1)) is not None
     user = User(
         email=email,
         password_hash=hash_password(payload.password),
         settings=UserSettings().model_dump(),
+        is_admin=not has_admin,
     )
     db.add(user)
     db.flush()
     db.add(Profile(user_id=user.id, email=email))
-    log.info("auth.registered", user_id=user.id)
+    log.info("auth.registered", user_id=user.id, is_admin=user.is_admin)
     return user
 
 
@@ -286,6 +294,26 @@ def delete_account(
     """Delete the account and every row and file belonging to it."""
     from app.services.storage import delete_user_files
 
+    # Don't let the last administrator strand other people: their accounts
+    # would remain with nobody able to manage them, and whoever registered
+    # next would silently inherit the role. Being the only account on the
+    # install is different — deleting that is just leaving, and the install
+    # returns to its pre-registration state.
+    if user.is_admin:
+        other_admins = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.is_admin.is_(True), User.id != user.id)
+        )
+        other_users = db.scalar(
+            select(func.count()).select_from(User).where(User.id != user.id)
+        )
+        if not other_admins and other_users:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "You are the only administrator and other accounts still exist. "
+                "Promote another account first.",
+            )
     delete_user_files(user.id)
     db.delete(user)  # DB rows cascade via FK ondelete
     response.delete_cookie(SESSION_COOKIE, path="/")

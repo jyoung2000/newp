@@ -35,9 +35,43 @@ class UserOut(BaseModel):
     id: int
     email: str
     totp_enabled: bool
+    is_admin: bool
     created_at: dt.datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Account management (admin only) ----------------------------------------
+
+
+class AdminUserOut(BaseModel):
+    """A user as an administrator sees it. Deliberately about the account and
+    nothing in it: no profile, no listings, no application history."""
+
+    id: int
+    email: str
+    is_admin: bool
+    totp_enabled: bool
+    created_at: dt.datetime
+    last_seen_at: dt.datetime | None = None
+    active_sessions: int = 0
+    # True for the administrator making the request, so a UI can keep them
+    # from locking themselves out of their own account.
+    is_self: bool = False
+
+
+class AdminCreateUserRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=10, max_length=200)
+    is_admin: bool = False
+
+
+class AdminUpdateUserRequest(BaseModel):
+    is_admin: bool
+
+
+class AdminSetPasswordRequest(BaseModel):
+    new_password: str = Field(min_length=10, max_length=200)
 
 
 class SessionOut(BaseModel):

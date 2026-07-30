@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -17,6 +17,15 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     totp_secret: Mapped[str | None] = mapped_column(String(64))
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # The head admin. Granted to the first account registered on an install
+    # (see api/auth.register) and thereafter only by an existing admin. Admins
+    # manage accounts; they get no access to another user's job data, which
+    # stays isolated by user_id at the query layer.
+    # false() renders per dialect (`false` on Postgres, `0` on SQLite).
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=false()
+    )
 
     # --- AI provider settings (Settings → AI) ---------------------------
     # The API key is stored encrypted (services/crypto.py) and is never

@@ -6,6 +6,8 @@ export interface NavItem {
   icon: IconName
   badge?: boolean
   end?: boolean
+  // Rendered only for the head admin (see Sidebar / MobileNav).
+  adminOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -17,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/applications', label: 'Applications', icon: 'applications' },
   { to: '/profile', label: 'Profile', icon: 'profile' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
+  { to: '/users', label: 'Users', icon: 'user', adminOnly: true },
 ]
 
 // Primary items surfaced in the mobile bottom bar (the rest live in the menu).

@@ -44,6 +44,10 @@ def _ensure_demo_user(db) -> User:
             email=DEMO_EMAIL,
             password_hash=hash_password(DEMO_PASSWORD),
             settings={"humanize_default": True, "run_mode_default": "review"},
+            # Never the head admin. This account is created unattended with a
+            # password printed in the installer output and the README, so the
+            # role would be handed to anyone who can read either.
+            is_admin=False,
         )
         db.add(user)
         db.flush()

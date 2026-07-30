@@ -16,6 +16,7 @@ from app.api import (
     saved_answers,
     search,
     transfer,
+    users,
 )
 from app.api import (
     settings as settings_api,
@@ -41,5 +42,6 @@ api_router.include_router(extension.router, prefix="/ext", tags=["extension"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(transfer.router, prefix="/transfer", tags=["transfer"])
 api_router.include_router(settings_api.router, prefix="/settings", tags=["settings"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])
 
 ws_router = ws_module.router
