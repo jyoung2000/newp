@@ -1473,6 +1473,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/transfer/backup/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Backup */
+        post: operations["preview_backup_api_transfer_backup_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transfer/backup/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Backup
+         * @description Put a backup back. Additive by design: nothing already in the account is
+         *     deleted. `merge=overwrite` lets profile values from the backup win where
+         *     they collide; `keep` (the default) preserves what is already here.
+         *
+         *     Listings de-duplicate through the same upsert the importer uses, and an
+         *     application is skipped when one already exists for the same listing — so
+         *     running a restore twice does not double the history.
+         */
+        post: operations["restore_backup_api_transfer_backup_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transfer/profile/preview": {
         parameters: {
             query?: never;
@@ -1938,6 +1981,84 @@ export interface components {
              */
             needs_human: number;
         };
+        /** BackupContents */
+        BackupContents: {
+            /**
+             * Valid
+             * @default true
+             */
+            valid: boolean;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /**
+             * App Version
+             * @default
+             */
+            app_version: string;
+            /**
+             * Exported At
+             * @default
+             */
+            exported_at: string;
+            /**
+             * Account Email
+             * @default
+             */
+            account_email: string;
+            /**
+             * Listings
+             * @default 0
+             */
+            listings: number;
+            /**
+             * Applications
+             * @default 0
+             */
+            applications: number;
+            /**
+             * Files
+             * @default 0
+             */
+            files: number;
+            /**
+             * Work Experiences
+             * @default 0
+             */
+            work_experiences: number;
+            /**
+             * Educations
+             * @default 0
+             */
+            educations: number;
+            /**
+             * Custom Fields
+             * @default 0
+             */
+            custom_fields: number;
+            /**
+             * Saved Answers
+             * @default 0
+             */
+            saved_answers: number;
+            /**
+             * Existing Listings
+             * @default 0
+             */
+            existing_listings: number;
+            /**
+             * Existing Applications
+             * @default 0
+             */
+            existing_applications: number;
+            /**
+             * Existing Files
+             * @default 0
+             */
+            existing_files: number;
+        };
         /** Body_apply_import_api_transfer_profile_apply_post */
         Body_apply_import_api_transfer_profile_apply_post: {
             /** File */
@@ -1948,8 +2069,18 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_preview_backup_api_transfer_backup_preview_post */
+        Body_preview_backup_api_transfer_backup_preview_post: {
+            /** File */
+            file: string;
+        };
         /** Body_preview_import_api_transfer_profile_preview_post */
         Body_preview_import_api_transfer_profile_preview_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_restore_backup_api_transfer_backup_restore_post */
+        Body_restore_backup_api_transfer_backup_restore_post: {
             /** File */
             file: string;
         };
@@ -3119,6 +3250,49 @@ export interface components {
             resolutions: components["schemas"]["ResolutionOut"][];
             /** Run Active */
             run_active: boolean;
+        };
+        /** RestoreResult */
+        RestoreResult: {
+            /**
+             * Profile Updated
+             * @default false
+             */
+            profile_updated: boolean;
+            /**
+             * Listings Imported
+             * @default 0
+             */
+            listings_imported: number;
+            /**
+             * Listings Skipped
+             * @default 0
+             */
+            listings_skipped: number;
+            /**
+             * Applications Imported
+             * @default 0
+             */
+            applications_imported: number;
+            /**
+             * Applications Skipped
+             * @default 0
+             */
+            applications_skipped: number;
+            /**
+             * Files Imported
+             * @default 0
+             */
+            files_imported: number;
+            /**
+             * Files Skipped
+             * @default 0
+             */
+            files_skipped: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
         };
         /** RunCreate */
         RunCreate: {
@@ -6466,6 +6640,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    preview_backup_api_transfer_backup_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_backup_api_transfer_backup_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupContents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_backup_api_transfer_backup_restore_post: {
+        parameters: {
+            query?: {
+                merge?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_restore_backup_api_transfer_backup_restore_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

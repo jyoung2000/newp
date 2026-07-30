@@ -75,6 +75,8 @@ export type FunnelStage = Schemas['FunnelStage']
 export type ImportPreview = Schemas['ImportPreview']
 export type ImportResult = Schemas['ImportResult']
 export type ImportListingsResult = Schemas['ImportListingsResult']
+export type BackupContents = Schemas['BackupContents']
+export type RestoreResult = Schemas['RestoreResult']
 
 // Enumerations used across the UI. Kept in sync with the backend literals.
 export type RunMode = 'auto' | 'review' | 'draft'

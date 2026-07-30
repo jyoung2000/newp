@@ -44,6 +44,19 @@ def _iso(value: Any) -> Any:
     return value
 
 
+def parse_dt(value: Any) -> dt.datetime | None:
+    """An ISO timestamp from an export back into a datetime. Exports are always
+    UTC-aware; a naive one (hand-edited, or from an older build) is read as UTC
+    rather than rejected, since a timestamp is worth more than nothing."""
+    if not value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)
+
+
 def _date(value: Any) -> dt.date | None:
     if not value:
         return None
@@ -295,3 +308,59 @@ def applications_to_rows(
 def parse_listings_csv(text: str) -> list[dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(text))
     return [dict(row) for row in reader]
+
+
+# --- Applications, losslessly ----------------------------------------------
+# applications_to_rows above is for the CSV a human reads in a spreadsheet: it
+# flattens the listing in and drops anything a spreadsheet has no use for. That
+# makes it lossy, so it cannot be the thing a restore reads back. These two
+# carry the whole record, plus enough of the listing to re-attach it to one
+# after import — ids are per-install and meaningless in another database.
+
+
+def listing_key(listing: JobListing | None) -> str:
+    """A stable identity for a listing across installs. The canonical URL when
+    there is one, else title+company — the same pair the CSV importer treats as
+    the minimum viable listing."""
+    if listing is None:
+        return ""
+    if listing.canonical_url:
+        return f"url:{listing.canonical_url.strip().lower()}"
+    return f"tc:{(listing.title or '').strip().lower()}|{(listing.company or '').strip().lower()}"
+
+
+def applications_to_records(
+    apps: list[Application], listings: dict[int, JobListing]
+) -> list[dict[str, Any]]:
+    records = []
+    for a in apps:
+        li = listings.get(a.listing_id)
+        records.append(
+            {
+                "listing_key": listing_key(li),
+                # Enough to recreate a placeholder listing if the export's
+                # listings didn't come along, so history is never orphaned.
+                "listing": {
+                    "title": li.title if li else None,
+                    "company": li.company if li else None,
+                    "canonical_url": li.canonical_url if li else None,
+                    "source": li.source if li else "import",
+                    "location": li.location if li else None,
+                }
+                if li
+                else None,
+                "status": a.status,
+                "mode": a.mode,
+                "executor": a.executor,
+                "humanize": a.humanize,
+                "needs_human_reason": a.needs_human_reason,
+                "parked_at": _iso(a.parked_at),
+                "submitted_at": _iso(a.submitted_at),
+                "outcome": a.outcome,
+                "outcome_updated_at": _iso(a.outcome_updated_at),
+                "error": a.error,
+                "field_snapshot": a.field_snapshot,
+                "created_at": _iso(a.created_at),
+            }
+        )
+    return records

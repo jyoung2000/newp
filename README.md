@@ -283,7 +283,7 @@ Everything configurable lives at **Settings** in the UI, in six sections:
 | **AI** | Anthropic API key, model, offline mode, test connection — see below |
 | **Extension** | Download for Chrome/Firefox, load-unpacked walkthrough, 6-digit pairing code + QR, paired devices and revoke |
 | **Preferences** | Default run mode and executor, "Type like a human" default, auto-answer confidence threshold, email/webhook notifications, timezone |
-| **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; import profile with a merge preview, import job lists |
+| **Data** | Export profile JSON / job lists CSV+JSON / application history CSV / everything as a zip; **restore a full backup**, import a profile with a merge preview, import job lists |
 | **Danger zone** | Delete the account and all of its data |
 
 ## Accounts and the head admin
@@ -319,6 +319,45 @@ registration takes the role again.
 
 Upgrading an existing install promotes the earliest non-demo account, so
 whoever set it up keeps managing it.
+
+### Your data, in and out
+
+Everything you type into JobPilot can leave it and come back. **Settings → Data.**
+
+**Export** — individually, or all at once:
+
+| File | What's in it |
+|---|---|
+| `jobpilot-export.zip` | Everything below, plus your uploaded files. The one to keep. |
+| `profile.json` | Personal block, work history, education, recommendations, custom fields, saved answers, search targets |
+| `listings.csv` / `.json` | Your saved job list |
+| `applications.csv` | Your application log, flattened for a spreadsheet |
+
+**Restore** — `Settings → Data → Restore a full backup`. Upload the zip and it
+shows what's inside before touching anything: which account it came from, when,
+and how many listings, applications, files, roles, custom fields and saved
+answers it holds. Then it puts back the profile, the job list, the **application
+history with the outcomes you recorded**, and your **résumés and cover letters,
+byte for byte**.
+
+It is additive: nothing already in the account is deleted. Duplicates are
+skipped, so **running a restore twice doesn't double anything** — which matters,
+because a restore is exactly the thing people re-run when unsure it worked. By
+default your current profile values are kept and only blanks are filled in; a
+toggle lets the backup's values win instead.
+
+Two details worth knowing:
+
+- The zip carries a `manifest.json` and an `applications.json`. The CSV is the
+  lossy one meant for spreadsheets; the JSON is what a restore reads, and it
+  re-attaches each application to its listing by URL (or title + company) rather
+  than by database id, since ids mean nothing in another install.
+- If an application's listing isn't in the archive — an older export, or a
+  hand-trimmed one — the listing is recreated from the details stored alongside
+  the application, so your history is never silently dropped.
+
+Your **API key is never exported.** It is stored encrypted and does not appear
+in any of these files, so a backup is safe to keep next to your other documents.
 
 ### Settings → AI
 
